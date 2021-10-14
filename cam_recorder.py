@@ -14,7 +14,8 @@ class CamRecorder(threading.Thread):
 
         self.cap = cv2.VideoCapture(url)
         # .get(cv2.CAP_PROP_FPS) may return incorrect result
-        self.fps = int(self.cap.get(cv2.CAP_PROP_FPS)) if self.cap.get(cv2.CAP_PROP_FPS) < 100 else 15
+        # self.fps = int(self.cap.get(cv2.CAP_PROP_FPS)) if self.cap.get(cv2.CAP_PROP_FPS) < 100 else 15
+        self.fps = 15
 
         self.filename = filename
         self.image_size = (int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
@@ -22,7 +23,9 @@ class CamRecorder(threading.Thread):
         self.loop_time_in_seconds = int(video_loop_size.total_seconds()) * self.fps
 
     def check_capture(self):
-        return self.cap.isOpened()
+        if not self.cap.isOpened():
+            raise IOError('Stream stopped')
+        return True
 
     def record_video(self):
         datetime_now = datetime.now()
@@ -44,10 +47,10 @@ class CamRecorder(threading.Thread):
 
     def run(self):
         try:
-            if self.check_capture():
-                logger.info(f'Start recording')
-                # send_message(f'Start recording')
-                while True:
+            logger.info(f'Start recording')
+            # send_message(f'Start recording')
+            while True:
+                if self.check_capture():
                     self.record_video()
 
         except KeyboardInterrupt:
@@ -56,7 +59,6 @@ class CamRecorder(threading.Thread):
             logger.warning(f'Some error occurred: {e}')
         finally:
             self.cap.release()
-            cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
