@@ -10,13 +10,13 @@ if __name__ == '__main__':
     if not os.path.exists('media'):
         os.mkdir('media')
 
-    for url, name in camera_urls_names:
-        cam_recorder = CamRecorder(
-            url=url,
-            filename=f'res:{name}.avi',
-            video_loop_size=timedelta(minutes=1)
-        )
-        cam_recorder.start()
+    # for url, name in camera_urls_names:
+    #     cam_recorder = CamRecorder(
+    #         url=url,
+    #         filename=f'res:{name}.avi',
+    #         video_loop_size=timedelta(minutes=1)
+    #     )
+    #     cam_recorder.start()
 
     video_uploader = VideoUploader(
         url=STORAGE_SERVER_URL,

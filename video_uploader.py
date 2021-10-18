@@ -3,6 +3,7 @@ import threading
 from time import sleep
 
 import pysftp
+from paramiko.ssh_exception import SSHException
 from redis_client import redis_client
 from config import logger
 
@@ -37,4 +38,6 @@ class VideoUploader(threading.Thread):
                 self.upload_files()
             except AttributeError as e:
                 logger.info("no connection, will try later")
+            except SSHException as e:
+                logger.info(f"no connection, {e}")
             sleep(61)
