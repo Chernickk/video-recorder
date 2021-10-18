@@ -1,12 +1,10 @@
-import os
 import threading
 from datetime import datetime, timedelta
 
 import cv2
 
 from redis_client import redis_client
-from config import logger, single_url
-# from bot.main import send_message
+from config import logger
 
 
 class CamRecorder(threading.Thread):
@@ -14,8 +12,6 @@ class CamRecorder(threading.Thread):
         super().__init__()
 
         self.cap = cv2.VideoCapture(url)
-        # .get(cv2.CAP_PROP_FPS) may return incorrect result
-        # self.fps = int(self.cap.get(cv2.CAP_PROP_FPS)) if self.cap.get(cv2.CAP_PROP_FPS) < 100 else 15
         self.fps = 15
 
         self.filename = filename
@@ -44,13 +40,11 @@ class CamRecorder(threading.Thread):
             self.out.write(frame)
 
         logger.info(f'file "{datetime_string}_{self.filename}" has been recorded')
-        redis_client.rpush('ready_to_send', f'media/{datetime_string}_{self.filename}')
-        # send_message(f'file "{datetime_string}_{self.filename}" has been recorded')
+        redis_client.rpush('ready_to_send', f'{datetime_string}_{self.filename}')
 
     def run(self):
         try:
             logger.info(f'Start recording')
-            # send_message(f'Start recording')
             while True:
                 if self.check_capture():
                     self.record_video()
@@ -61,15 +55,3 @@ class CamRecorder(threading.Thread):
             logger.warning(f'Some error occurred: {e}')
         finally:
             self.cap.release()
-
-
-if __name__ == '__main__':
-    if not os.path.exists('media'):
-        os.mkdir('media')
-
-    cam_recorder = CamRecorder(
-        url=single_url,
-        filename='res.avi',
-        video_loop_size=timedelta(minutes=1)
-    )
-    cam_recorder.run()

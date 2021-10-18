@@ -10,16 +10,24 @@ class DBConnect:
         """prepare and automap db"""
 
         Base = automap_base()
-        engine = create_engine(
+        self._engine = create_engine(
             db_url,
             connect_args={"options": "-c timezone=utc"}
         )
-        Base.prepare(engine, reflect=True)
-        Car = Base.classes.car
+        Base.prepare(self._engine, reflect=True)
 
+        self._Car = Base.classes.car
+        self.car_id = car_id
         self.Record = Base.classes.record
-        self.session = Session(engine)
-        self.car = self.session.query(Car).filter_by(id=car_id).first()
+
+    def __enter__(self):
+        self.session = Session(self._engine)
+        self.car = self.session.query(self._Car).filter_by(id=self.car_id).first()
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.session.close()
 
     def add_record(self, filename):
         datetime_formatted = datetime.strptime(filename[:19], '%Y-%m-%d_%H:%M:%S')
@@ -28,9 +36,3 @@ class DBConnect:
                                      car=self.car,
                                      start_time=datetime_formatted))
         self.session.commit()
-
-
-if __name__ == '__main__':
-    connection = DBConnect('postgresql+psycopg2://video:expotorgpsw@localhost/video', 1)
-    filename = '2021-10-17_12:59:12_res:cam1.avi'
-    connection.add_record(filename)
