@@ -1,21 +1,40 @@
-import pysftp
 import os
-import time
+import threading
+from time import sleep
+
+import pysftp
+from redis_client import redis_client
+from config import logger
 
 
-start_time = time.time()
+class VideoUploader(threading.Thread):
+    def __init__(self, url: str, username: str, password: str, destination_path: str):
+        super().__init__()
 
-with pysftp.Connection('192.168.202.94', username='user', password='videopsw') as sftp:
-    with sftp.cd('/home/user/videoserver/media'):
-        for filename in sftp.listdir():
-            print(f'start download {filename}')
-            # if filename not in os.listdir():
-            #     sftp.get(filename)
-            if filename.startswith('2021-10-13_14'):
-                print(f'start download {filename}')
-                sftp.get(filename)
-                print(f'{filename} download complete')
+        self.url = url
+        self.username = username
+        self.password = password
+        self.destination_path = destination_path
 
-        print("Download files successfully")
+    def upload_files(self):
+        with pysftp.Connection(self.url, username=self.username, password=self.password) as sftp:
+            for _ in range(redis_client.llen('ready_to_send')):
+                try:
+                    filename = redis_client.lrange('ready_to_send', 0, 0)[0]
+                    logger.info(f'start upload {filename}')
+                    sftp.put(filename, os.path.join(self.destination_path, filename))
+                    logger.info(f'{filename} upload complete')
 
-print(f'total time: {time.time() - start_time}')
+                except OSError as e:
+                    logger.warning(f'Some error occured, {filename} not uploaded')
+                else:
+                    os.remove(filename)
+                    redis_client.lpop('ready_to_send')
+
+    def run(self):
+        while True:
+            try:
+                self.upload_files()
+            except AttributeError as e:
+                logger.info("no connection, will try later")
+            sleep(61)

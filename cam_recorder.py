@@ -1,9 +1,10 @@
 import os
-from datetime import datetime, timedelta
 import threading
+from datetime import datetime, timedelta
 
 import cv2
 
+from redis_client import redis_client
 from config import logger, single_url
 # from bot.main import send_message
 
@@ -43,6 +44,7 @@ class CamRecorder(threading.Thread):
             self.out.write(frame)
 
         logger.info(f'file "{datetime_string}_{self.filename}" has been recorded')
+        redis_client.rpush('ready_to_send', f'media/{datetime_string}_{self.filename}')
         # send_message(f'file "{datetime_string}_{self.filename}" has been recorded')
 
     def run(self):
@@ -68,6 +70,6 @@ if __name__ == '__main__':
     cam_recorder = CamRecorder(
         url=single_url,
         filename='res.avi',
-        video_loop_size=timedelta(minutes=10)
+        video_loop_size=timedelta(minutes=1)
     )
     cam_recorder.run()
