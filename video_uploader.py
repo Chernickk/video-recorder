@@ -49,4 +49,4 @@ class VideoUploader(threading.Thread):
                 logger.info("no connection, will try later")
             except SSHException as e:
                 logger.info(f"no connection, {e}")
-            sleep(Config.VIDEO_DURATION.total_seconds())
+            sleep(Config.VIDEO_DURATION.total_seconds() // 3)
