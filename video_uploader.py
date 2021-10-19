@@ -32,7 +32,7 @@ class VideoUploader(threading.Thread):
 
                         logger.info(f'start upload {filename}')
                         sftp.put(filepath, os.path.join(self.destination_path, filename))
-                        conn.add_record(filename)
+                        conn.add_record(filename=filename, video_duration=Config.VIDEO_DURATION)
                         logger.info(f'{filepath} upload complete')
 
                     except OSError as e:

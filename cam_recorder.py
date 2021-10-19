@@ -35,12 +35,13 @@ class CamRecorder(threading.Thread):
                                    self.image_size,
                                    True)
 
+        redis_client.rpush('ready_to_send', f'{datetime_string}_{self.filename}')
+
         for i in range(self.loop_time_in_seconds):
             ret, frame = self.cap.read()
             self.out.write(frame)
 
         logger.info(f'file "{datetime_string}_{self.filename}" has been recorded')
-        redis_client.rpush('ready_to_send', f'{datetime_string}_{self.filename}')
 
     def run(self):
         try:
