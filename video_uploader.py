@@ -1,11 +1,14 @@
 import os
 import threading
+import pickle
 from time import sleep
+from datetime import timedelta
 
 import pysftp
 from paramiko.ssh_exception import SSHException
+from moviepy.editor import VideoFileClip
 
-from redis_client import redis_client
+from redis_client import redis_client, redis_client_pickle
 from config import logger, Config
 from db import DBConnect
 
@@ -29,22 +32,37 @@ class VideoUploader(threading.Thread):
                     try:
                         filename = redis_client.lrange('ready_to_send', 0, 0)[0]
                         filepath = os.path.join('media', filename)
+                        duration = timedelta(seconds=VideoFileClip(filepath).duration)
 
                         logger.info(f'start upload {filename}')
                         sftp.put(filepath, os.path.join(self.destination_path, filename))
-                        conn.add_record(filename=filename, video_duration=Config.VIDEO_DURATION)
+                        conn.add_record(filename=filename, video_duration=duration)
                         logger.info(f'{filepath} upload complete')
 
                     except OSError as e:
-                        logger.warning(f'Some error occured, {filename} not uploaded')
+                        logger.warning(f'Some error occurred, {filename} not uploaded: {e}')
                     else:
                         os.remove(filepath)
                         redis_client.lpop('ready_to_send')
+
+    def send_coordinates(self):
+        with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+            for _ in range(redis_client.llen('coordinates')):
+                try:
+                    coordinates = pickle.loads(redis_client_pickle.lrange('coordinates', 0, 0)[0])
+                    conn.add_coordinates(coordinates)
+                except Exception as e:
+                    logger.warning(f'Some error occurred, coordinates not uploaded: {e}')
+                else:
+                    redis_client_pickle.lpop('coordinates')
+            else:
+                logger.info(f'coordinates upload complete')
 
     def run(self):
         while True:
             try:
                 self.upload_files()
+                self.send_coordinates()
             except AttributeError as e:
                 logger.info("no connection, will try later")
             except SSHException as e:

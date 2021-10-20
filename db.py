@@ -19,6 +19,7 @@ class DBConnect:
         self._Car = Base.classes.car
         self.car_id = car_id
         self.Record = Base.classes.record
+        self.GPS = Base.classes.gps
 
     def __enter__(self):
         self.session = Session(self._engine)
@@ -37,4 +38,12 @@ class DBConnect:
                                      car=self.car,
                                      start_time=datetime_formatted,
                                      end_time=end_time))
+        self.session.commit()
+
+    def add_coordinates(self, coordinates: dict):
+
+        self.session.add(self.GPS(car=self.car,
+                                  latitude=coordinates['latitude'],
+                                  longitude=coordinates['longitude'],
+                                  datetime=coordinates['datetime']))
         self.session.commit()

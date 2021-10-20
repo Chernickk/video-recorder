@@ -1,5 +1,6 @@
 import threading
 from datetime import datetime, timedelta
+from time import sleep
 
 import cv2
 
@@ -11,17 +12,24 @@ class CamRecorder(threading.Thread):
     def __init__(self, url: str, filename: str, video_loop_size: timedelta):
         super().__init__()
 
-        self.cap = cv2.VideoCapture(url)
+        self.capture = cv2.VideoCapture(url)
+        self.url = url
         self.fps = 15
-
         self.filename = filename
-        self.image_size = (int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        self.image_size = (
+            int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        )
         self.out = None
         self.loop_time_in_seconds = int(video_loop_size.total_seconds()) * self.fps
 
     def check_capture(self):
-        if not self.cap.isOpened():
+        if not self.capture.isOpened():
             raise IOError('Stream stopped')
+        status, _ = self.capture.read()
+        if not status:
+            raise IOError('Stream stopped')
+
         return True
 
     def record_video(self):
@@ -34,25 +42,26 @@ class CamRecorder(threading.Thread):
                                    self.fps,
                                    self.image_size,
                                    True)
-
-        redis_client.rpush('ready_to_send', f'{datetime_string}_{self.filename}')
+        filename = f'{datetime_string}_{self.filename}'
 
         for i in range(self.loop_time_in_seconds):
-            ret, frame = self.cap.read()
+            status, frame = self.capture.read()
             self.out.write(frame)
 
         logger.info(f'file "{datetime_string}_{self.filename}" has been recorded')
 
-    def run(self):
-        try:
-            logger.info(f'Start recording')
-            while True:
-                if self.check_capture():
-                    self.record_video()
+        return filename
 
-        except KeyboardInterrupt:
-            logger.info('Recording stopped by user')
-        except Exception as e:
-            logger.warning(f'Some error occurred: {e}')
-        finally:
-            self.cap.release()
+    def run(self):
+        logger.info(f'Start recording')
+        while True:
+            try:
+                self.capture = cv2.VideoCapture(self.url)
+                if self.check_capture():
+                    filename = self.record_video()
+                    redis_client.rpush('ready_to_send', filename)
+            except Exception as e:
+                logger.warning(f'Some error occurred: {e}')
+                sleep(30)
+            finally:
+                self.capture.release()
