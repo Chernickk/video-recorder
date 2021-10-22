@@ -34,7 +34,6 @@ class DBConnect:
         datetime_formatted = datetime.strptime(filename[:19], '%Y-%m-%d_%H:%M:%S')
         end_time = datetime_formatted + video_duration
         self.session.add(self.Record(file_name=filename,
-                                     is_deleted=False,
                                      car=self.car,
                                      start_time=datetime_formatted,
                                      end_time=end_time))
