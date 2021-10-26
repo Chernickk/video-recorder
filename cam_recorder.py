@@ -24,6 +24,7 @@ class CamRecorder(threading.Thread):
         self.loop_time_in_seconds = int(video_loop_size.total_seconds()) * self.fps
 
     def check_capture(self):
+        """ Проверка получения видео из rtsp стрима """
         if not self.capture.isOpened():
             raise IOError('Stream stopped')
         status, _ = self.capture.read()
@@ -33,17 +34,21 @@ class CamRecorder(threading.Thread):
         return True
 
     def record_video(self):
+        """ Запись одного видеофайла """
+        # формирования строки с датой для названия видеофайла
         datetime_now = datetime.now()
         datetime_string = f'{datetime_now.date()}_{datetime_now.hour:02d}:' \
                           f'{datetime_now.minute:02d}:{datetime_now.second:02d}'
+        filename = f'{datetime_string}_{self.filename}'
 
-        self.out = cv2.VideoWriter(f'media/{datetime_string}_{self.filename}',
+        # создание экземпляра обьекта записи видео
+        self.out = cv2.VideoWriter(f'media/{filename}',
                                    cv2.VideoWriter_fourcc(*'XVID'),
                                    self.fps,
                                    self.image_size,
                                    True)
-        filename = f'{datetime_string}_{self.filename}'
 
+        # считывание кадров из rtsp стрима
         for i in range(self.loop_time_in_seconds):
             status, frame = self.capture.read()
             self.out.write(frame)
@@ -53,15 +58,18 @@ class CamRecorder(threading.Thread):
         return filename
 
     def run(self):
+        """
+        Запуск бесконечного цикла записи видео.
+        Если rtsp недоступен, повторная попытка начала записи производится через 30 секунд.
+        """
         logger.info(f'Start recording')
         while True:
             try:
-                self.capture = cv2.VideoCapture(self.url)
                 if self.check_capture():
                     filename = self.record_video()
                     redis_client.rpush('ready_to_send', filename)
             except Exception as e:
                 logger.warning(f'Some error occurred: {e}')
-                sleep(30)
-            finally:
                 self.capture.release()
+                sleep(30)
+                self.capture = cv2.VideoCapture(self.url)

@@ -31,6 +31,7 @@ class DBConnect:
         self.session.close()
 
     def add_record(self, filename, video_duration):
+        """ Добавить запись в базу данных """
         datetime_formatted = datetime.strptime(filename[:19], '%Y-%m-%d_%H:%M:%S')
         end_time = datetime_formatted + video_duration
         self.session.add(self.Record(file_name=filename,
@@ -40,7 +41,7 @@ class DBConnect:
         self.session.commit()
 
     def add_coordinates(self, coordinates: dict):
-
+        """ Добавить координаты в базу данных """
         self.session.add(self.GPS(car=self.car,
                                   latitude=coordinates['latitude'],
                                   longitude=coordinates['longitude'],

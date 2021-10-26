@@ -10,6 +10,7 @@ from config import logger
 
 
 class GPSEmulator(threading.Thread):
+    """ Эмулятор gps трекера - генерирует случайные координаты """
     def __init__(self):
         super().__init__()
 
