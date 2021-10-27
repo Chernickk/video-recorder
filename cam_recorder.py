@@ -9,19 +9,26 @@ from config import logger
 
 
 class CamRecorder(threading.Thread):
-    def __init__(self, url: str, filename: str, video_loop_size: timedelta):
+    def __init__(self, url: str, camera_name: str, video_loop_size: timedelta):
         super().__init__()
 
         self.capture = cv2.VideoCapture(url)
         self.url = url
         self.fps = 15
-        self.filename = filename
+        self.camera_name = camera_name
+        self.filename = f'rec_{self.camera_name}.avi'
         self.image_size = (
             int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         )
         self.out = None
         self.loop_time_in_seconds = int(video_loop_size.total_seconds()) * self.fps
+
+    def log_info(self, message: str) -> None:
+        logger.info(f'!{self.camera_name} {message}')
+
+    def log_warning(self, message: str) -> None:
+        logger.warning(f'!{self.camera_name} {message}')
 
     def check_capture(self):
         """ Проверка получения видео из rtsp стрима """
@@ -53,7 +60,7 @@ class CamRecorder(threading.Thread):
             status, frame = self.capture.read()
             self.out.write(frame)
 
-        logger.info(f'file "{datetime_string}_{self.filename}" has been recorded')
+        self.log_info(f'file "{datetime_string}_{self.filename}" has been recorded')
 
         return filename
 
@@ -69,7 +76,7 @@ class CamRecorder(threading.Thread):
                     filename = self.record_video()
                     redis_client.rpush('ready_to_send', filename)
             except Exception as e:
-                logger.warning(f'Some error occurred: {e}')
+                self.log_warning(f'Some error occurred: {e}')
                 self.capture.release()
                 sleep(30)
                 self.capture = cv2.VideoCapture(self.url)

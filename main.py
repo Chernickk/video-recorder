@@ -13,7 +13,7 @@ if __name__ == '__main__':
     for url, name in camera_urls_names:
         cam_recorder = CamRecorder(
             url=url,
-            filename=f'res:{name}.avi',
+            camera_name=name,
             video_loop_size=Config.VIDEO_DURATION
         )
         cam_recorder.start()

@@ -22,6 +22,7 @@ class VideoUploader(threading.Thread):
         self.password = password
         self.destination_path = destination_path
 
+
     def upload_files(self):
         """
         Выгрузка файлов на сервер с помощью SFTP
