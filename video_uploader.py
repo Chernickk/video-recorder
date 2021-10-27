@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import paramiko
 from moviepy.editor import VideoFileClip
-from paramiko.ssh_exception import SSHException
+from paramiko import ssh_exception
 
 from redis_client import redis_client, redis_client_pickle
 from config import logger, Config
@@ -98,6 +98,8 @@ class VideoUploader(threading.Thread):
                 self.send_coordinates()
             except AttributeError as e:
                 logger.info(f"no connection, will try later {e}")
-            except SSHException as e:
+            except ssh_exception as e:
                 logger.info(f"no connection, {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error: {e}")
             sleep(Config.VIDEO_DURATION.total_seconds() // 6)
