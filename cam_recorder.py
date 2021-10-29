@@ -1,3 +1,4 @@
+import os
 import threading
 from datetime import datetime, timedelta
 from time import sleep
@@ -9,7 +10,7 @@ from config import logger
 
 
 class CamRecorder(threading.Thread):
-    def __init__(self, url: str, camera_name: str, video_loop_size: timedelta):
+    def __init__(self, url: str, camera_name: str, video_loop_size: timedelta, media_path='media'):
         super().__init__()
 
         self.capture = cv2.VideoCapture(url)
@@ -23,6 +24,7 @@ class CamRecorder(threading.Thread):
         )
         self.out = None
         self.loop_time_in_seconds = int(video_loop_size.total_seconds()) * self.fps
+        self.media_path = media_path
 
     def log_info(self, message: str) -> None:
         logger.info(f'!{self.camera_name} {message}')
@@ -49,7 +51,7 @@ class CamRecorder(threading.Thread):
         filename = f'{datetime_string}_{self.filename}'
 
         # создание экземпляра обьекта записи видео
-        self.out = cv2.VideoWriter(f'media/{filename}',
+        self.out = cv2.VideoWriter(os.path.join(self.media_path, filename),
                                    cv2.VideoWriter_fourcc(*'XVID'),
                                    self.fps,
                                    self.image_size,
