@@ -5,8 +5,8 @@ from time import sleep
 
 import cv2
 
-from redis_client import redis_client
-from config import logger
+from utils.redis_client import redis_client
+from logs.logger import logger
 
 
 class CamRecorder(threading.Thread):
@@ -71,14 +71,14 @@ class CamRecorder(threading.Thread):
         Запуск бесконечного цикла записи видео.
         Если rtsp недоступен, повторная попытка начала записи производится через 30 секунд.
         """
-        logger.info(f'Start recording')
+        logger.info(f'{self.camera_name}: start recording...')
         while True:
             try:
                 if self.check_capture():
                     filename = self.record_video()
                     redis_client.rpush('ready_to_send', filename)
             except Exception as e:
-                self.log_warning(f'Some error occurred: {e}')
+                self.log_warning(f'Unexpected recorder error: {e}')
                 self.capture.release()
                 sleep(30)
                 self.capture = cv2.VideoCapture(self.url)

@@ -5,8 +5,8 @@ import pickle
 from time import sleep
 from datetime import datetime
 
-from redis_client import redis_client_pickle
-from config import logger
+from utils.redis_client import redis_client_pickle
+from logs.logger import logger
 
 
 class GPSEmulator(threading.Thread):

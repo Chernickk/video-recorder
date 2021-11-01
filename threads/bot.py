@@ -5,14 +5,14 @@ from datetime import timedelta
 from time import sleep
 
 from config import Config, logger
-from redis_client import redis_client
+from utils.redis_client import redis_client
 
 
 class CarBot(Thread):
     def __init__(self, car_id, network_check_interval=timedelta(minutes=1)):
         super().__init__()
         self.network_check_interval = network_check_interval.total_seconds()
-        self.network_status = True
+        self.network_status = False
         self.has_files_to_upload = False
         self.car_id = car_id
 
@@ -40,6 +40,8 @@ class CarBot(Thread):
                      f"/sendMessage?chat_id={Config.CHAT_ID}&text={text}")
 
     def run(self):
+        self.send_message(f'Машина {self.car_id}. Запуск.')
+
         while True:
             try:
                 status = self.network_status

@@ -3,7 +3,7 @@ import shutil
 from threading import Thread
 from time import sleep
 
-from config import logger
+from logs.logger import logger
 
 
 class MediaRemover(Thread):
@@ -37,7 +37,7 @@ class MediaRemover(Thread):
                 free_space = self.get_free_space()
                 if free_space <= 10:
 
-                    logger.warning('Low disk space! Removing older files...')
+                    logger.warning(f'Low disk space: {e} Gb! Removing older files...')
                     files_to_delete = self.get_files_to_delete()
                     self.delete_files(files_to_delete)
             except Exception as e:

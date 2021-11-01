@@ -1,18 +1,18 @@
 import os
 
-from cam_recorder import CamRecorder
-from video_uploader import VideoUploader
-from gps_tracker import GPSEmulator
-from bot import CarBot
-from config import camera_urls_names, Config
-from media_remover import MediaRemover
+from threads.cam_recorder import CamRecorder
+from threads.video_uploader import VideoUploader
+from threads.gps_tracker import GPSEmulator
+from threads.bot import CarBot
+from threads.media_remover import MediaRemover
+from config import Config
 
 
 if __name__ == '__main__':
     if not os.path.exists(Config.MEDIA_PATH):
         os.mkdir(Config.MEDIA_PATH)
 
-    for url, name in camera_urls_names:
+    for url, name in Config.CAMERAS:
         cam_recorder = CamRecorder(
             url=url,
             camera_name=name,
