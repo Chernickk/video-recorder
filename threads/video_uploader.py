@@ -23,6 +23,12 @@ class VideoUploader(threading.Thread):
         self.password = password
         self.destination_path = destination_path
 
+    def check_destination_path(self, sftp_client):
+        try:
+            sftp_client.stat(self.destination_path)
+        except FileNotFoundError:
+            logger.warning('Destination path doesnt exist!')
+            sftp_client.mkdir(self.destination_path)
 
     def upload_files(self):
         """
@@ -44,6 +50,8 @@ class VideoUploader(threading.Thread):
                 # создание sftp поверх ssh
                 with client.open_sftp() as sftp:
                     sftp.get_channel().settimeout(30)
+
+                    self.check_destination_path(sftp)
 
                     for _ in range(redis_client.llen('ready_to_send')):
 
@@ -72,12 +80,10 @@ class VideoUploader(threading.Thread):
                             redis_client.lpop('ready_to_send')
                             logger.info(f'{filepath} upload complete')
 
-
     def check_unfinished_records(self):
         files = os.listdir(Config.MEDIA_PATH)
         for file in files:
             redis_client.rpush('ready_to_send', file)
-
 
     def send_coordinates(self):
         """Отправка координат в удаленную базу данных"""
