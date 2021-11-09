@@ -77,10 +77,7 @@ class CamRecorder(threading.Thread):
         while True:
             try:
                 if self.check_capture():
-                    filename = self.record_video()
-
-                    if filename:
-                        redis_client.rpush('ready_to_send', filename)
+                    self.record_video()
 
             except Exception as e:
 
@@ -142,6 +139,26 @@ class ArUcoCamRecorder(CamRecorder):
             return filename
 
         return False
+
+    def run(self):
+        """
+        Запуск бесконечного цикла записи видео.
+        Если rtsp недоступен, повторная попытка начала записи производится через 30 секунд.
+        """
+        self.logger.info(f'start recording...')
+        while True:
+            try:
+                if self.check_capture():
+                    filename = self.record_video()
+                    if filename:
+                        redis_client.rpush('ready_to_send', filename)
+
+            except Exception as e:
+
+                self.logger.warning(f'Unexpected recorder error: {e}')
+                self.capture.release()
+                sleep(30)
+                self.capture = cv2.VideoCapture(self.url)
 
 
 if __name__ == '__main__':
