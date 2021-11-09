@@ -64,7 +64,7 @@ class CamRecorder(threading.Thread):
             frame = cv2.resize(frame, self.dest_size)
             self.out.write(frame)
 
-        self.logger.info(f'file "{self.filename}" has been recorded')
+        self.logger.info(f'file "{filename}" has been recorded')
 
         return filename
 
@@ -134,7 +134,7 @@ class ArUcoCamRecorder(CamRecorder):
 
                 self.out.write(frame)
 
-            self.logger.info(f'file "{self.filename}" has been recorded')
+            self.logger.info(f'file "{filename}" has been recorded')
 
             return filename
 

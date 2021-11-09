@@ -7,4 +7,5 @@ from config import Config
 def check_unfinished_records():
     files = os.listdir(Config.MEDIA_PATH)
     for file in files:
-        redis_client.rpush('ready_to_send', file)
+        if 'BodyCam' in file:
+            redis_client.rpush('ready_to_send', file)

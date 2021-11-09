@@ -5,7 +5,6 @@ from time import sleep
 from datetime import timedelta
 
 import paramiko
-from moviepy.editor import VideoFileClip
 from paramiko.ssh_exception import SSHException
 
 from utils.redis_client import redis_client, redis_client_pickle
@@ -60,7 +59,6 @@ class HomeServerConnector(threading.Thread):
                         filename = redis_client.lrange('ready_to_send', 0, 0)[0]
                         filepath = os.path.join(Config.MEDIA_PATH, filename)
                         try:
-                            duration = timedelta(seconds=VideoFileClip(filepath).duration)
 
                             # отправка файла на удаленный сервер
                             self.logger.info(f'start upload {filename}')
@@ -69,7 +67,7 @@ class HomeServerConnector(threading.Thread):
                             # подключение к базе данных
                             with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
                                 # запись данных о видео в удаленную бд
-                                conn.add_record(filename=filename, video_duration=duration)
+                                conn.add_record(filename=filename)
 
                         except OSError as e:
                             self.logger.exception(f'Some error occurred, {filename} not uploaded: {e}')

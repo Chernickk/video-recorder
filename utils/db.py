@@ -30,14 +30,12 @@ class DBConnect:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.session.close()
 
-    def add_record(self, filename, video_duration):
+    def add_record(self, filename):
         """ Добавить запись в базу данных """
         datetime_formatted = datetime.strptime(filename[:19], '%Y-%m-%d_%H:%M:%S')
-        end_time = datetime_formatted + video_duration
         self.session.add(self.Record(file_name=filename,
                                      car=self.car,
-                                     start_time=datetime_formatted,
-                                     end_time=end_time))
+                                     start_time=datetime_formatted))
         self.session.commit()
 
     def add_coordinates(self, coordinates: dict):
