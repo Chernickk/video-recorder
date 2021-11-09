@@ -132,3 +132,5 @@ config.py
 
 #custom
 /media/
+*.png
+*.aviaruco_test.py
