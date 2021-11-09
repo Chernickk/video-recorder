@@ -4,8 +4,9 @@ from threading import Thread
 from datetime import timedelta
 from time import sleep
 
-from config import Config, logger
+from config import Config
 from utils.redis_client import redis_client
+from logs.logger import logger
 
 
 class CarBot(Thread):

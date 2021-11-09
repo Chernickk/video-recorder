@@ -3,7 +3,7 @@ import shutil
 from threading import Thread
 from time import sleep
 
-from logs.logger import logger
+from logs.logger import Logger
 
 
 class MediaRemover(Thread):
@@ -16,6 +16,7 @@ class MediaRemover(Thread):
         self.min_free_space = min_free_space  # Gb
         self.num_files_to_delete = 4
         self.media_path = media_path
+        self.logger = Logger('MediaRemover')
 
     def get_free_space(self):
         total, used, free = shutil.disk_usage("/")
@@ -29,7 +30,7 @@ class MediaRemover(Thread):
     def delete_files(self, files):
         for file in files:
             os.remove(os.path.join(self.media_path, file))
-            logger.info(f'{file} has been removed')
+            self.logger.info(f'{file} has been removed')
 
     def run(self):
         while True:
@@ -37,9 +38,9 @@ class MediaRemover(Thread):
                 free_space = self.get_free_space()
                 if free_space <= 10:
 
-                    logger.warning(f'Low disk space: {e} Gb! Removing older files...')
+                    self.logger.warning(f'Low disk space: {free_space} Gb! Removing older files...')
                     files_to_delete = self.get_files_to_delete()
                     self.delete_files(files_to_delete)
             except Exception as e:
-                logger.warning(f'Unexpected error: {e}')
+                self.logger.exception(f'Unexpected error: {e}')
             sleep(self.check_interval)

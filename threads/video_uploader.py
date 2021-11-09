@@ -11,10 +11,10 @@ from paramiko.ssh_exception import SSHException
 from utils.redis_client import redis_client, redis_client_pickle
 from config import Config
 from utils.db import DBConnect
-from logs.logger import logger
+from logs.logger import Logger
 
 
-class VideoUploader(threading.Thread):
+class HomeServerConnector(threading.Thread):
     def __init__(self, url: str, username: str, password: str, destination_path: str):
         super().__init__()
 
@@ -22,12 +22,13 @@ class VideoUploader(threading.Thread):
         self.username = username
         self.password = password
         self.destination_path = destination_path
+        self.logger = Logger('HomeServerConnector')
 
     def check_destination_path(self, sftp_client):
         try:
             sftp_client.stat(self.destination_path)
         except FileNotFoundError:
-            logger.warning('Destination path doesnt exist!')
+            self.logger.warning('Destination path doesnt exist!')
             sftp_client.mkdir(self.destination_path)
 
     def upload_files(self):
@@ -57,12 +58,12 @@ class VideoUploader(threading.Thread):
 
                         # получение имени файла из очереди в redis сервере
                         filename = redis_client.lrange('ready_to_send', 0, 0)[0]
-                        filepath = os.path.join('media', filename)
+                        filepath = os.path.join(Config.MEDIA_PATH, filename)
                         try:
                             duration = timedelta(seconds=VideoFileClip(filepath).duration)
 
                             # отправка файла на удаленный сервер
-                            logger.info(f'start upload {filename}')
+                            self.logger.info(f'start upload {filename}')
                             sftp.put(filepath, os.path.join(self.destination_path, filename))
 
                             # подключение к базе данных
@@ -71,19 +72,17 @@ class VideoUploader(threading.Thread):
                                 conn.add_record(filename=filename, video_duration=duration)
 
                         except OSError as e:
-                            logger.warning(f'Some error occurred, {filename} not uploaded: {e}')
+                            self.logger.exception(f'Some error occurred, {filename} not uploaded: {e}')
+                            if 'MoviePy' in e:
+                                os.remove(filepath)
+                                redis_client.lpop('ready_to_send')
                         except EOFError as e:
-                            logger.warning(f'SSH connection error: {e}')
+                            self.logger.exception(f'SSH connection error: {e}')
                         else:
                             # удаление выгруженного файла из памяти и очереди в redis
                             os.remove(filepath)
                             redis_client.lpop('ready_to_send')
-                            logger.info(f'{filepath} upload complete')
-
-    def check_unfinished_records(self):
-        files = os.listdir(Config.MEDIA_PATH)
-        for file in files:
-            redis_client.rpush('ready_to_send', file)
+                            self.logger.info(f'{filepath} upload complete')
 
     def send_coordinates(self):
         """Отправка координат в удаленную базу данных"""
@@ -96,12 +95,15 @@ class VideoUploader(threading.Thread):
                     # отправка координат в бд
                     conn.add_coordinates(coordinates)
                 except Exception as e:
-                    logger.warning(f'Some error occurred, coordinates not uploaded: {e}')
+                    self.logger.exception(f'Some error occurred, coordinates not uploaded: {e}')
                 else:
                     # удаление координат из очереди redis
                     redis_client_pickle.lpop('coordinates')
             else:
-                logger.info(f'coordinates upload complete')
+                self.logger.info(f'coordinates upload complete')
+
+    def check_video_requests(self):
+        pass
 
     def run(self):
         """
@@ -110,16 +112,14 @@ class VideoUploader(threading.Thread):
         В случае неудачи следущая попытка осуществляется через (хронометраж видео / 6).
         """
 
-        self.check_unfinished_records()  # добавление файлов, которые не записались до конца, в очередь на выгрузку
-
         while True:
             try:
                 self.upload_files()
                 self.send_coordinates()
             except AttributeError as e:
-                logger.info(f"no connection, will try later {e}")
+                self.logger.info(f"no connection, will try later {e}")
             except SSHException as e:
-                logger.info(f"no connection, {e}")
+                self.logger.info(f"no connection, {e}")
             except Exception as e:
-                logger.warning(f"Unexpected error: {e}")
+                self.logger.exception(f"Unexpected error: {e}")
             sleep(Config.VIDEO_DURATION.total_seconds() // 6)
