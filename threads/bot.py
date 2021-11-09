@@ -6,7 +6,7 @@ from time import sleep
 
 from config import Config
 from utils.redis_client import redis_client
-from logs.logger import logger
+from logs.logger import Logger
 
 
 class CarBot(Thread):
@@ -16,6 +16,7 @@ class CarBot(Thread):
         self.network_status = False
         self.has_files_to_upload = False
         self.car_id = car_id
+        self.logger = Logger('TelegramBot')
 
     def check_connection(self):
         try:
@@ -29,7 +30,7 @@ class CarBot(Thread):
                 if ' 0% packet loss' in line:
                     return True
         except Exception as e:
-            logger.warning(f"Bot error: {e}")
+            self.logger.exception(f"Bot error: {e}")
         return False
 
     def check_files(self):
@@ -64,7 +65,7 @@ class CarBot(Thread):
                 sleep(self.network_check_interval)
 
             except Exception as e:
-                logger.warning(f'Bot. Unexpected error: {e}')
+                self.logger.exception(f'Bot. Unexpected error: {e}')
 
 
 if __name__ == '__main__':

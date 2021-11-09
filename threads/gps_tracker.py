@@ -6,13 +6,14 @@ from time import sleep
 from datetime import datetime
 
 from utils.redis_client import redis_client_pickle
-from logs.logger import logger
+from logs.logger import Logger
 
 
 class GPSEmulator(threading.Thread):
     """ Эмулятор gps трекера - генерирует случайные координаты """
     def __init__(self):
         super().__init__()
+        self.logger = Logger('GPSTracker')
 
     def get_coordinates(self):
         latitude = random.randint(-900000, 900000) / 10000
@@ -27,9 +28,13 @@ class GPSEmulator(threading.Thread):
         return gps
 
     def run(self):
-        logger.info('start gps tracker')
+        self.logger.info('start gps tracker')
         while True:
-            coords = self.get_coordinates()
-            redis_client_pickle.rpush('coordinates', pickle.dumps(coords))
+            try:
+                coords = self.get_coordinates()
+                redis_client_pickle.rpush('coordinates', pickle.dumps(coords))
 
-            sleep(120)
+                sleep(120)
+            except Exception as e:
+                self.logger.exception('Unexpected error')
+

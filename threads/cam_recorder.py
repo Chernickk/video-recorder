@@ -73,7 +73,7 @@ class CamRecorder(threading.Thread):
         Запуск бесконечного цикла записи видео.
         Если rtsp недоступен, повторная попытка начала записи производится через 30 секунд.
         """
-        self.logger.info(f'{self.camera_name}: start recording...')
+        self.logger.info(f'start recording...')
         while True:
             try:
                 if self.check_capture():
