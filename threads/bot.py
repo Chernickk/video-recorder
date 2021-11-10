@@ -15,10 +15,12 @@ class CarBot(Thread):
         self.network_check_interval = network_check_interval.total_seconds()
         self.network_status = False
         self.has_files_to_upload = False
+        self.has_requested_files_to_upload = False
         self.car_id = car_id
         self.logger = Logger('TelegramBot')
 
     def check_connection(self):
+        status = False
         try:
             ping_server = subprocess.Popen(
                 ('ping', Config.STORAGE_SERVER_URL, '-c', '2'),
@@ -28,14 +30,34 @@ class CarBot(Thread):
 
             for line in ping_server.stdout:
                 if ' 0% packet loss' in line:
-                    return True
+                    status = True
         except Exception as e:
             self.logger.exception(f"Bot error: {e}")
-        return False
 
-    def check_files(self):
+        if status:
+            if not self.network_status:
+                self.send_message(f'Машина {self.car_id} появилась в сети')
+                self.network_status = True
+        else:
+            self.network_status = False
+
+    def check_regular_files(self):
         files_to_upload = redis_client.llen('ready_to_send')
-        return True if files_to_upload else False
+
+        if self.has_files_to_upload and not files_to_upload:
+            self.send_message(f'Машина {self.car_id}. Записи выгружены на сервер')
+            self.has_files_to_upload = False
+        elif files_to_upload:
+            self.has_files_to_upload = True
+
+    def check_requested_files(self):
+        files_to_upload = redis_client.llen('ready_requested_videos')
+
+        if self.has_requested_files_to_upload and not files_to_upload:
+            self.send_message(f'Машина {self.car_id}. Запрошенные записи выгружены на сервер')
+            self.has_requested_files_to_upload = False
+        elif files_to_upload:
+            self.has_requested_files_to_upload = True
 
     def send_message(self, text):
         requests.get(f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}"
@@ -46,28 +68,11 @@ class CarBot(Thread):
 
         while True:
             try:
-                status = self.network_status
-
-                if self.check_connection():
-                    if not status:
-                        self.send_message(f'Машина {self.car_id} появилась в сети')
-                        self.network_status = True
-
-                    if self.has_files_to_upload and not self.check_files():
-                        self.send_message(f'Машина {self.car_id}. Все файлы выгружены на сервер')
-                        self.has_files_to_upload = False
-                    elif self.check_files():
-                        self.has_files_to_upload = True
-
-                else:
-                    self.network_status = False
+                self.check_connection()
+                self.check_regular_files()
+                self.check_requested_files()
 
                 sleep(self.network_check_interval)
 
             except Exception as e:
                 self.logger.exception(f'Bot. Unexpected error: {e}')
-
-
-if __name__ == '__main__':
-    car_bot = CarBot(1)
-    car_bot.start()
