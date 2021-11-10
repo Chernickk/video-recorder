@@ -2,7 +2,6 @@ import os
 import threading
 import pickle
 from time import sleep
-from datetime import timedelta
 
 import paramiko
 from paramiko.ssh_exception import SSHException
@@ -59,7 +58,6 @@ class HomeServerConnector(threading.Thread):
                         filename = redis_client.lrange('ready_to_send', 0, 0)[0]
                         filepath = os.path.join(Config.MEDIA_PATH, filename)
                         try:
-
                             # отправка файла на удаленный сервер
                             self.logger.info(f'start upload {filename}')
                             sftp.put(filepath, os.path.join(self.destination_path, filename))
@@ -68,12 +66,10 @@ class HomeServerConnector(threading.Thread):
                             with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
                                 # запись данных о видео в удаленную бд
                                 conn.add_record(filename=filename)
-
+                        except FileNotFoundError:
+                            redis_client.lpop('ready_to_send')
                         except OSError as e:
                             self.logger.exception(f'Some error occurred, {filename} not uploaded: {e}')
-                            if 'MoviePy' in e:
-                                os.remove(filepath)
-                                redis_client.lpop('ready_to_send')
                         except EOFError as e:
                             self.logger.exception(f'SSH connection error: {e}')
                         else:
