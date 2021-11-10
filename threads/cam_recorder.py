@@ -31,10 +31,8 @@ class CamRecorder(threading.Thread):
 
     def check_capture(self):
         """ Проверка получения видео из rtsp стрима """
-        if not self.capture.isOpened():
-            raise IOError('Stream stopped')
         status, _ = self.capture.read()
-        if not status:
+        if not status or not self.capture.isOpened():
             raise IOError('Stream stopped')
 
         return True
@@ -64,7 +62,8 @@ class CamRecorder(threading.Thread):
             frame = cv2.resize(frame, self.dest_size)
             self.out.write(frame)
 
-        self.logger.info(f'file "{filename}" has been recorded')
+        self.out.release()
+        self.logger.info(f'file "{self.filename}" has been recorded')
 
         return filename
 
@@ -94,51 +93,56 @@ class ArUcoCamRecorder(CamRecorder):
                          video_loop_size=video_loop_size,
                          media_path=media_path)
         self.check_interval_in_seconds = Config.CHECK_MARKERS_INTERVAL
+        self.aruco_dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
+        self.aruco_params = cv2.aruco.DetectorParameters_create()
 
     def detect_markers(self, frame):
-        dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
-        parameters = cv2.aruco.DetectorParameters_create()
-        _, markers, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+        _, markers, _ = cv2.aruco.detectMarkers(frame, self.aruco_dictionary, parameters=self.aruco_params)
 
         if markers is not None:
             return True
 
         return False
 
+    def initial_check(self):
+        """
+        Дополнительная проверка для исключения ложных срабатываний
+        :return:
+        """
+        result = []
+        for _ in range(3):
+            _, frame = self.capture.read()
+            result.append(self.detect_markers(frame))
+
+        return all(result)
+
     def record_video(self):
         """ Запись одного видеофайла """
 
-        _, frame = self.capture.read()
-        status = self.detect_markers(frame)
+        # формирования строки с датой для названия видеофайла
+        filename = self.make_filename()
 
-        if status:
+        # создание экземпляра обьекта записи видео
+        self.out = cv2.VideoWriter(os.path.join(self.media_path, filename),
+                                   cv2.VideoWriter_fourcc(*'XVID'),
+                                   self.fps,
+                                   self.image_size,
+                                   True)
 
-            # формирования строки с датой для названия видеофайла
-            filename = self.make_filename()
+        for i in range(self.total_frames):
+            _, frame = self.capture.read()
 
-            # создание экземпляра обьекта записи видео
-            self.out = cv2.VideoWriter(os.path.join(self.media_path, filename),
-                                       cv2.VideoWriter_fourcc(*'XVID'),
-                                       self.fps,
-                                       self.image_size,
-                                       True)
+            # проверка один раз в заданное количество секунд
+            if not i % (self.fps * self.check_interval_in_seconds):
+                status = self.detect_markers(frame)
+                if not status:
+                    break
+            self.out.write(frame)
 
-            for i in range(self.total_frames):
-                _, frame = self.capture.read()
+        self.out.release()
+        self.logger.info(f'file "{self.filename}" has been recorded')
 
-                # проверка один раз в заданное количество секунд
-                if not i % (self.fps * self.check_interval_in_seconds):
-                    status = self.detect_markers(frame)
-                    if not status:
-                        break
-
-                self.out.write(frame)
-
-            self.logger.info(f'file "{filename}" has been recorded')
-
-            return filename
-
-        return False
+        return filename
 
     def run(self):
         """
@@ -148,14 +152,16 @@ class ArUcoCamRecorder(CamRecorder):
         self.logger.info(f'start recording...')
         while True:
             try:
-                if self.check_capture():
+                if self.check_capture() and self.initial_check():
                     filename = self.record_video()
                     if filename:
                         redis_client.rpush('ready_to_send', filename)
+                else:
+                    sleep(30)
 
             except Exception as e:
 
-                self.logger.warning(f'Unexpected recorder error: {e}')
+                self.logger.exception(f'Unexpected recorder error: {e}')
                 self.capture.release()
                 sleep(30)
                 self.capture = cv2.VideoCapture(self.url)
