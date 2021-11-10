@@ -4,6 +4,8 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 
+from config import Config
+
 
 class DBConnect:
     def __init__(self, db_url, car_id):
@@ -19,6 +21,7 @@ class DBConnect:
         self._Car = Base.classes.car
         self.car_id = car_id
         self.Record = Base.classes.record
+        self.RecordRequest = Base.classes.record_request
         self.GPS = Base.classes.gps
 
     def __enter__(self):
@@ -32,10 +35,19 @@ class DBConnect:
 
     def add_record(self, filename):
         """ Добавить запись в базу данных """
-        datetime_formatted = datetime.strptime(filename[:19], '%Y-%m-%d_%H:%M:%S')
+        datetime_formatted = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
         self.session.add(self.Record(file_name=filename,
                                      car=self.car,
                                      start_time=datetime_formatted))
+        self.session.commit()
+
+    def add_record_for_request(self, filename, pk):
+        """ Добавить запись в базу данных """
+        datetime_formatted = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
+        self.session.add(self.Record(file_name=filename,
+                                     car=self.car,
+                                     start_time=datetime_formatted,
+                                     request_id=pk))
         self.session.commit()
 
     def add_coordinates(self, coordinates: dict):
@@ -45,3 +57,19 @@ class DBConnect:
                                   longitude=coordinates['longitude'],
                                   datetime=coordinates['datetime']))
         self.session.commit()
+
+    def get_record_requests(self):
+        query = self.session.query(self.RecordRequest).filter_by(delivered=False)
+
+        results = [{
+            'start_time': request.start_time,
+            'finish_time': request.finish_time,
+            'id': request.id,
+        } for request in query]
+
+        for request in query:
+            request.delivered = True
+        self.session.commit()
+
+        return results
+
