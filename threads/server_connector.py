@@ -45,6 +45,7 @@ class HomeServerConnector(threading.Thread):
                 # запись данных о видео в удаленную бд
                 conn.add_record(filename=filename)
         except FileNotFoundError:
+            redis_client.delete(filename)
             redis_client.lpop('ready_to_send')
         except OSError as e:
             self.logger.exception(f'Some error occurred, {filename} not uploaded: {e}')
