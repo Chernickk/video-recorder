@@ -153,8 +153,8 @@ class HomeServerConnector(threading.Thread):
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
             # получение запросов на видеозаписи
             requests = conn.get_record_requests()
-            [pickle.dumps(request) for request in requests]
-            redis_client_pickle.lpush('requests', requests)
+            for request in requests:
+                redis_client_pickle.lpush('requests', pickle.dumps(request))
 
     def make_clip(self, filename, file_start, start_time, finish_time):
         file_full_path = os.path.join(Config.MEDIA_PATH, filename)
@@ -184,7 +184,7 @@ class HomeServerConnector(threading.Thread):
         filenames = [file for file in os.listdir(Config.MEDIA_PATH) if 'BodyCam' not in file]
         filenames.remove('temp')
 
-        for _ in redis_client_pickle.llen('requests'):
+        for _ in range(redis_client_pickle.llen('requests')):
             request = pickle.loads(redis_client_pickle.lpop('requests'))
 
             request_files = []
