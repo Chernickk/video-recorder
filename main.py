@@ -1,7 +1,7 @@
 import os
 
 from threads.cam_recorder import CamRecorder, ArUcoCamRecorder
-from threads.video_uploader import HomeServerConnector
+from threads.server_connector import HomeServerConnector
 from threads.gps_tracker import GPSEmulator
 from threads.bot import CarBot
 from threads.media_remover import MediaRemover
@@ -12,6 +12,8 @@ from config import Config
 if __name__ == '__main__':
     if not os.path.exists(Config.MEDIA_PATH):
         os.mkdir(Config.MEDIA_PATH)
+    if not os.path.exists(os.path.join(Config.MEDIA_PATH, 'temp')):
+        os.mkdir(os.path.join(Config.MEDIA_PATH, 'temp'))
 
     check_unfinished_records()  # добавление файлов, которые не записались до конца, в очередь на выгрузку
 

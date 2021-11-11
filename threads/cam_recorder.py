@@ -38,9 +38,7 @@ class CamRecorder(threading.Thread):
         return True
 
     def make_filename(self):
-        datetime_now = datetime.now()
-        datetime_string = f'{datetime_now.date()}_{datetime_now.hour:02d}:' \
-                          f'{datetime_now.minute:02d}:{datetime_now.second:02d}'
+        datetime_string = datetime.strftime(datetime.now(), Config.DATETIME_FORMAT)
 
         return f'{datetime_string}_{self.filename}'
 
