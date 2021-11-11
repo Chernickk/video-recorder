@@ -134,7 +134,6 @@ class HomeServerConnector(threading.Thread):
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
             # получение запросов на видеозаписи
             requests = conn.get_record_requests()
-        self.logger.info('requests')
         return requests
 
     def make_clips_by_request(self):
