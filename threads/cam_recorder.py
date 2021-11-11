@@ -23,7 +23,6 @@ class CamRecorder(threading.Thread):
             int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         )
-        self.dest_size = Config.VIDEO_RESOLUTION
         self.out = None
         self.total_frames = int(video_loop_size.total_seconds()) * self.fps
         self.media_path = media_path
@@ -51,13 +50,11 @@ class CamRecorder(threading.Thread):
         self.out = cv2.VideoWriter(os.path.join(self.media_path, filename),
                                    cv2.VideoWriter_fourcc(*'XVID'),
                                    self.fps,
-                                   self.dest_size,
                                    True)
 
         # считывание кадров из rtsp стрима
         for i in range(self.total_frames):
             status, frame = self.capture.read()
-            frame = cv2.resize(frame, self.dest_size)
             self.out.write(frame)
 
         self.out.release()
