@@ -31,21 +31,23 @@ if __name__ == '__main__':
                 url=url,
                 camera_name=name,
                 video_loop_size=Config.VIDEO_DURATION,
-                media_path=Config.MEDIA_PATH
+                media_path=Config.MEDIA_PATH,
+                fps=Config.FPS,
             )
         else:
             cam_recorder = CamRecorder(
                 url=url,
                 camera_name=name,
                 video_loop_size=Config.VIDEO_DURATION,
-                media_path=Config.MEDIA_PATH
+                media_path=Config.MEDIA_PATH,
+                fps=Config.FPS,
             )
         cam_recorder.start()
 
     gps_tracker = GPSEmulator()
     gps_tracker.start()
 
-    car_bot = CarBot(Config.CAR_ID)
+    car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CAR_ID, Config.CAR_ID)
     car_bot.start()
 
     media_remover = MediaRemover(check_interval=Config.VIDEO_DURATION.total_seconds(),

@@ -10,14 +10,20 @@ from logs.logger import Logger
 
 
 class CarBot(Thread):
-    def __init__(self, car_id, network_check_interval=timedelta(minutes=1)):
+    def __init__(self, bot_token, chat_id, car_id, network_check_interval=timedelta(minutes=1)):
         super().__init__()
+        self.bot_token = bot_token
+        self.chat_id = chat_id
         self.network_check_interval = network_check_interval.total_seconds()
         self.network_status = False
         self.has_files_to_upload = False
         self.has_requested_files_to_upload = False
         self.car_id = car_id
         self.logger = Logger('TelegramBot')
+
+    def send_message(self, text):
+        requests.get(f"https://api.telegram.org/bot{self.bot_token}"
+                     f"/sendMessage?chat_id={self.chat_id}&text={text}")
 
     def check_connection(self):
         status = False
@@ -59,9 +65,10 @@ class CarBot(Thread):
         elif files_to_upload:
             self.has_requested_files_to_upload = True
 
-    def send_message(self, text):
-        requests.get(f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}"
-                     f"/sendMessage?chat_id={Config.CHAT_ID}&text={text}")
+    def check_errors(self):
+        for _ in range(redis_client.llen('error_messages')):
+            message = redis_client.lpop('error_messages')
+            self.send_message(message)
 
     def run(self):
         self.send_message(f'Машина {self.car_id}. Запуск.')
@@ -69,8 +76,10 @@ class CarBot(Thread):
         while True:
             try:
                 self.check_connection()
-                self.check_regular_files()
-                self.check_requested_files()
+                if self.network_status:
+                    self.check_errors()
+                    self.check_regular_files()
+                    self.check_requested_files()
 
                 sleep(self.network_check_interval)
 
