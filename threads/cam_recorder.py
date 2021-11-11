@@ -56,6 +56,7 @@ class CamRecorder(threading.Thread):
         for i in range(self.total_frames):
             status, frame = self.capture.read()
             self.out.write(frame)
+            redis_client.incr(filename)
 
         self.out.release()
         self.logger.info(f'file "{self.filename}" has been recorded')
@@ -133,6 +134,7 @@ class ArUcoCamRecorder(CamRecorder):
                 if not status:
                     break
             self.out.write(frame)
+            redis_client.incr(filename)
 
         self.out.release()
         self.logger.info(f'file "{self.filename}" has been recorded')
