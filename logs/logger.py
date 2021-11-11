@@ -1,7 +1,10 @@
 import os
-from config import Config
 
 from loguru import logger
+
+from utils.redis_client import redis_client
+from config import Config
+
 
 logger.add(
     os.path.join(Config.PATH, 'logs', 'data', 'logs.log'),
@@ -19,9 +22,11 @@ class Logger:
 
     def exception(self, exception):
         self.logger.exception(f'{self.name} Error: {exception}')
+        redis_client.lpush('error_messages', f'{self.name} Error: {exception}')
 
     def warning(self, message):
         self.logger.warning(f'{self.name} {message}')
+        redis_client.lpush('error_messages', f'{self.name} {message}')
 
     def info(self, message):
         self.logger.info(f'{self.name} {message}')

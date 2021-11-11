@@ -11,19 +11,18 @@ from config import Config
 
 
 class CamRecorder(threading.Thread):
-    def __init__(self, url: str, camera_name: str, video_loop_size: timedelta, media_path):
+    def __init__(self, url: str, camera_name: str, video_loop_size: timedelta, media_path, fps):
         super().__init__()
 
         self.capture = cv2.VideoCapture(url)
         self.url = url
-        self.fps = 15
+        self.fps = fps
         self.camera_name = camera_name
         self.filename = f'rec_{self.camera_name}.avi'
         self.image_size = (
             int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         )
-        self.dest_size = Config.VIDEO_RESOLUTION
         self.out = None
         self.total_frames = int(video_loop_size.total_seconds()) * self.fps
         self.media_path = media_path
@@ -51,17 +50,18 @@ class CamRecorder(threading.Thread):
         self.out = cv2.VideoWriter(os.path.join(self.media_path, filename),
                                    cv2.VideoWriter_fourcc(*'XVID'),
                                    self.fps,
-                                   self.dest_size,
+                                   self.image_size,
                                    True)
 
         # считывание кадров из rtsp стрима
         for i in range(self.total_frames):
             status, frame = self.capture.read()
-            frame = cv2.resize(frame, self.dest_size)
-            self.out.write(frame)
+            if status:
+                self.out.write(frame)
+                redis_client.incr(filename)
 
         self.out.release()
-        self.logger.info(f'file "{self.filename}" has been recorded')
+        self.logger.info(f'file "{filename}" has been recorded')
 
         return filename
 
@@ -85,11 +85,9 @@ class CamRecorder(threading.Thread):
 
 
 class ArUcoCamRecorder(CamRecorder):
-    def __init__(self, url: str, camera_name: str, video_loop_size: timedelta, media_path):
-        super().__init__(url=url,
-                         camera_name=camera_name,
-                         video_loop_size=video_loop_size,
-                         media_path=media_path)
+    def __init__(self, url: str, camera_name: str, video_loop_size: timedelta, media_path, fps):
+        super().__init__(url, camera_name, video_loop_size, media_path, fps)
+
         self.check_interval_in_seconds = Config.CHECK_MARKERS_INTERVAL
         self.aruco_dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
         self.aruco_params = cv2.aruco.DetectorParameters_create()
@@ -128,17 +126,18 @@ class ArUcoCamRecorder(CamRecorder):
                                    True)
 
         for i in range(self.total_frames):
-            _, frame = self.capture.read()
-
-            # проверка один раз в заданное количество секунд
-            if not i % (self.fps * self.check_interval_in_seconds):
-                status = self.detect_markers(frame)
-                if not status:
-                    break
-            self.out.write(frame)
+            record_status, frame = self.capture.read()
+            if record_status:
+                # проверка один раз в заданное количество секунд
+                if not i % (self.fps * self.check_interval_in_seconds):
+                    status = self.detect_markers(frame)
+                    if not status:
+                        break
+                self.out.write(frame)
+                redis_client.incr(filename)
 
         self.out.release()
-        self.logger.info(f'file "{self.filename}" has been recorded')
+        self.logger.info(f'file "{filename}" has been recorded')
 
         return filename
 
@@ -163,12 +162,3 @@ class ArUcoCamRecorder(CamRecorder):
                 self.capture.release()
                 sleep(30)
                 self.capture = cv2.VideoCapture(self.url)
-
-
-if __name__ == '__main__':
-    cam_rec = ArUcoCamRecorder(url='rtsp://admin:Ckj;ysqgfhjkm13@10.10.10.50/1',
-                               camera_name='cam',
-                               video_loop_size=timedelta(minutes=1),
-                               media_path=Config.MEDIA_PATH,
-                               )
-    cam_rec.record_video()

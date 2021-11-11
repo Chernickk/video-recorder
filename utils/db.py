@@ -33,20 +33,12 @@ class DBConnect:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.session.close()
 
-    def add_record(self, filename):
+    def add_record(self, filename, start_time, finish_time, pk=None):
         """ Добавить запись в базу данных """
-        datetime_formatted = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
         self.session.add(self.Record(file_name=filename,
                                      car=self.car,
-                                     start_time=datetime_formatted))
-        self.session.commit()
-
-    def add_record_for_request(self, filename, pk):
-        """ Добавить запись в базу данных """
-        datetime_formatted = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
-        self.session.add(self.Record(file_name=filename,
-                                     car=self.car,
-                                     start_time=datetime_formatted,
+                                     start_time=start_time,
+                                     end_time=finish_time,
                                      request_id=pk))
         self.session.commit()
 
@@ -73,3 +65,8 @@ class DBConnect:
 
         return results
 
+    def set_request_status(self, pk, status: bool):
+        request = self.session.query(self.RecordRequest).get(id=pk)
+
+        request.record_status = status
+        self.session.commit()

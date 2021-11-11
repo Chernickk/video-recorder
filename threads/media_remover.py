@@ -4,6 +4,7 @@ from threading import Thread
 from time import sleep
 
 from logs.logger import Logger
+from utils.redis_client import redis_client
 
 
 class MediaRemover(Thread):
@@ -30,6 +31,7 @@ class MediaRemover(Thread):
     def delete_files(self, files):
         for file in files:
             os.remove(os.path.join(self.media_path, file))
+            redis_client.delete(file)
             self.logger.info(f'{file} has been removed')
 
     def run(self):

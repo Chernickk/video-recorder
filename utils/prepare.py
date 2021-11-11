@@ -1,6 +1,6 @@
 import os
 
-from redis_client import redis_client
+from utils.redis_client import redis_client
 from config import Config
 
 

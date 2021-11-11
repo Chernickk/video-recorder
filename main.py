@@ -1,4 +1,5 @@
 import os
+from time import sleep
 
 from threads.cam_recorder import CamRecorder, ArUcoCamRecorder
 from threads.server_connector import HomeServerConnector
@@ -25,29 +26,33 @@ if __name__ == '__main__':
     )
     video_uploader.start()
 
+    gps_tracker = GPSEmulator()
+    gps_tracker.start()
+
+    car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CHAT_ID, Config.CAR_ID)
+    car_bot.start()
+
+    media_remover = MediaRemover(check_interval=Config.VIDEO_DURATION.total_seconds(),
+                                 media_path=Config.MEDIA_PATH)
+    media_remover.start()
+
+    sleep(30)  # Ожидание инициализации камер
+
     for url, name in Config.CAMERAS:
         if name == 'BodyCam':
             cam_recorder = ArUcoCamRecorder(
                 url=url,
                 camera_name=name,
                 video_loop_size=Config.VIDEO_DURATION,
-                media_path=Config.MEDIA_PATH
+                media_path=Config.MEDIA_PATH,
+                fps=Config.FPS,
             )
         else:
             cam_recorder = CamRecorder(
                 url=url,
                 camera_name=name,
                 video_loop_size=Config.VIDEO_DURATION,
-                media_path=Config.MEDIA_PATH
+                media_path=Config.MEDIA_PATH,
+                fps=Config.FPS,
             )
         cam_recorder.start()
-
-    gps_tracker = GPSEmulator()
-    gps_tracker.start()
-
-    car_bot = CarBot(Config.CAR_ID)
-    car_bot.start()
-
-    media_remover = MediaRemover(check_interval=Config.VIDEO_DURATION.total_seconds(),
-                                 media_path=Config.MEDIA_PATH)
-    media_remover.start()
