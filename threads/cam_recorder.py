@@ -1,4 +1,5 @@
 import os
+import subprocess
 import threading
 from datetime import datetime, timedelta
 from time import sleep
@@ -18,11 +19,9 @@ class CamRecorder(threading.Thread):
         self.url = url
         self.fps = fps
         self.camera_name = camera_name
-        self.filename = f'rec_{self.camera_name}.avi'
-        self.image_size = (
-            int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        )
+        self.filename = f'rec_{self.camera_name}.mp4'
+        self.width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.out = None
         self.total_frames = int(video_loop_size.total_seconds()) * self.fps
         self.media_path = media_path
@@ -32,7 +31,19 @@ class CamRecorder(threading.Thread):
         """ Проверка получения видео из rtsp стрима """
         status, _ = self.capture.read()
         if not status or not self.capture.isOpened():
-            raise IOError('Stream stopped')
+            raise IOError(f'Stream stopped. Frame status: {status}, capture: {self.capture.isOpened()}')
+
+        return True
+
+    def initial_check(self):
+        """
+        Дополнительная проверка для исключения ложных срабатываний
+        :return:
+        """
+        for _ in range(5):
+            status, frame = self.capture.read()
+            if not status:
+                return False
 
         return True
 
@@ -47,20 +58,30 @@ class CamRecorder(threading.Thread):
         filename = self.make_filename()
 
         # создание экземпляра обьекта записи видео
-        self.out = cv2.VideoWriter(os.path.join(self.media_path, filename),
-                                   cv2.VideoWriter_fourcc(*'XVID'),
-                                   self.fps,
-                                   self.image_size,
-                                   True)
+        command = ['ffmpeg',
+                   '-y',  # (optional) overwrite output file if it exists
+                   '-f', 'rawvideo',
+                   '-vcodec', 'rawvideo',
+                   '-s', f'{self.width}x{self.height}',  # size of one frame
+                   '-pix_fmt', 'bgr24',
+                   '-r', '15',  # frames per second
+                   '-i', '-',  # The input comes from a pipe
+                   '-an',  # Tells FFMPEG not to expect any audio
+                   '-c:v', 'mpeg4',
+                   '-b:v', '1M',
+                   f'{os.path.join(self.media_path, filename)}']
+
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         # считывание кадров из rtsp стрима
         for i in range(self.total_frames):
             status, frame = self.capture.read()
             if status:
-                self.out.write(frame)
-                redis_client.incr(filename)
+                proc.stdin.write(frame.tobytes())
+            else:
+                break
+        proc.terminate()
 
-        self.out.release()
         self.logger.info(f'file "{filename}" has been recorded')
 
         return filename
@@ -73,7 +94,7 @@ class CamRecorder(threading.Thread):
         self.logger.info(f'start recording...')
         while True:
             try:
-                if self.check_capture():
+                if self.check_capture() and self.initial_check():
                     self.record_video()
 
             except Exception as e:
@@ -105,38 +126,45 @@ class ArUcoCamRecorder(CamRecorder):
         Дополнительная проверка для исключения ложных срабатываний
         :return:
         """
-        result = []
-        for _ in range(3):
-            _, frame = self.capture.read()
-            result.append(self.detect_markers(frame))
+        for _ in range(5):
+            status, frame = self.capture.read()
+            if not status or not self.detect_markers(frame):
+                return False
 
-        return all(result)
+        return True
 
     def record_video(self):
         """ Запись одного видеофайла """
-
         # формирования строки с датой для названия видеофайла
         filename = self.make_filename()
 
         # создание экземпляра обьекта записи видео
-        self.out = cv2.VideoWriter(os.path.join(self.media_path, filename),
-                                   cv2.VideoWriter_fourcc(*'XVID'),
-                                   self.fps,
-                                   self.image_size,
-                                   True)
+        command = ['ffmpeg',
+                   '-y',  # (optional) overwrite output file if it exists
+                   '-f', 'rawvideo',
+                   '-vcodec', 'rawvideo',
+                   '-s', f'{self.width}x{self.height}',  # size of one frame
+                   '-pix_fmt', 'bgr24',
+                   '-r', '15',  # frames per second
+                   '-i', '-',  # The input comes from a pipe
+                   '-an',  # Tells FFMPEG not to expect any audio
+                   '-c:v', 'mpeg4',
+                   '-b:v', '1M',
+                   f'{os.path.join(self.media_path, filename)}']
+
+        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         for i in range(self.total_frames):
             record_status, frame = self.capture.read()
             if record_status:
                 # проверка один раз в заданное количество секунд
-                if not i % (self.fps * self.check_interval_in_seconds):
+                if i and not i % (self.fps * self.check_interval_in_seconds):
                     status = self.detect_markers(frame)
                     if not status:
                         break
-                self.out.write(frame)
-                redis_client.incr(filename)
+                proc.stdin.write(frame.tobytes())
 
-        self.out.release()
+        proc.terminate()
         self.logger.info(f'file "{filename}" has been recorded')
 
         return filename
