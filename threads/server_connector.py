@@ -38,17 +38,23 @@ class HomeServerConnector(threading.Thread):
         try:
             # отправка файла на удаленный сервер
             self.logger.info(f'start upload {filename}')
-            sftp.put(filepath, os.path.join(self.destination_path, filename))
 
             start_time = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
-            finish_time = start_time + timedelta(seconds=int(redis_client.get(filename)) // Config.FPS)
+            duration = redis_client.get(filename)
+            if duration:
+                finish_time = start_time + timedelta(seconds=int(duration) // Config.FPS)
+                sftp.put(filepath, os.path.join(self.destination_path, filename))
+                # подключение к базе данных
+                with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+                    # запись данных о видео в удаленную бд
+                    conn.add_record(filename=filename,
+                                    start_time=start_time,
+                                    finish_time=finish_time)
+            else:
+                self.logger.exception(f'Empty file {filename}')
+                os.remove(filepath)
+                redis_client.lpop('ready_to_send')
 
-            # подключение к базе данных
-            with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
-                # запись данных о видео в удаленную бд
-                conn.add_record(filename=filename,
-                                start_time=start_time,
-                                finish_time=finish_time)
         except FileNotFoundError:
             redis_client.delete(filename)
             redis_client.lpop('ready_to_send')
@@ -191,39 +197,28 @@ class HomeServerConnector(threading.Thread):
             start_time = request['start_time'].replace(tzinfo=None)
             finish_time = request['finish_time'].replace(tzinfo=None)
 
-            contains_full = []  # Список файлов которые содержат полное запрошенное видео
-            contains_start = []  # Список файлов содержат начало запрошенных видео
-            contains_finish = []  # Список файлов содержат конец запрошенных видео
             for filename in filenames:
 
                 # Парсинг имени файла
                 file_start = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
                 file_finish = file_start + timedelta(int(redis_client.get(filename)) // Config.FPS)
 
-                # Проверка видео, подходит ли оно под запрос и наполнение списков
+                # Проверка видео, подходит ли оно под запрос и формирование видео
                 if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:
-                    contains_full.append(filename)
-                elif file_start <= start_time <= file_finish:
-                    contains_start.append(filename)
-                elif file_start <= finish_time <= file_finish:
-                    contains_finish.append(filename)
-
-                # Формирование клипов
-                for file in contains_full:
-                    out_filename = self.make_clip(file,
+                    out_filename = self.make_clip(filename,
                                                   file_start,
                                                   start_time=start_time,
                                                   finish_time=finish_time)
 
                     request_files.append(out_filename)
-                for file in contains_start:
-                    out_filename = self.make_clip(file,
+                elif file_start <= start_time <= file_finish:
+                    out_filename = self.make_clip(filename,
                                                   file_start,
                                                   start_time=start_time,
                                                   finish_time=file_finish)
                     request_files.append(out_filename)
-                for file in contains_finish:
-                    out_filename = self.make_clip(file,
+                elif file_start <= finish_time <= file_finish:
+                    out_filename = self.make_clip(filename,
                                                   file_start,
                                                   start_time=file_start,
                                                   finish_time=finish_time)
