@@ -71,16 +71,15 @@ class CamRecorder(threading.Thread):
                    '-b:v', '1M',
                    f'{os.path.join(self.media_path, filename)}']
 
-        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        with subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
 
-        # считывание кадров из rtsp стрима
-        for i in range(self.total_frames):
-            status, frame = self.capture.read()
-            if status:
-                proc.stdin.write(frame.tobytes())
-            else:
-                break
-        proc.terminate()
+            # считывание кадров из rtsp стрима
+            for i in range(self.total_frames):
+                status, frame = self.capture.read()
+                if status:
+                    process.stdin.write(frame.tobytes())
+                else:
+                    break
 
         self.logger.info(f'file "{filename}" has been recorded')
 
@@ -117,9 +116,9 @@ class ArUcoCamRecorder(CamRecorder):
         _, markers, _ = cv2.aruco.detectMarkers(frame, self.aruco_dictionary, parameters=self.aruco_params)
 
         if markers is not None:
-            return True
+            return False
 
-        return False
+        return True
 
     def initial_check(self):
         """
@@ -152,19 +151,18 @@ class ArUcoCamRecorder(CamRecorder):
                    '-b:v', '1M',
                    f'{os.path.join(self.media_path, filename)}']
 
-        proc = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        with subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
 
-        for i in range(self.total_frames):
-            record_status, frame = self.capture.read()
-            if record_status:
-                # проверка один раз в заданное количество секунд
-                if i and not i % (self.fps * self.check_interval_in_seconds):
-                    status = self.detect_markers(frame)
-                    if not status:
-                        break
-                proc.stdin.write(frame.tobytes())
+            for i in range(self.total_frames):
+                record_status, frame = self.capture.read()
+                if record_status:
+                    # проверка один раз в заданное количество секунд
+                    if i and not i % (self.fps * self.check_interval_in_seconds):
+                        status = self.detect_markers(frame)
+                        if not status:
+                            break
+                    process.stdin.write(frame.tobytes())
 
-        proc.terminate()
         self.logger.info(f'file "{filename}" has been recorded')
 
         return filename

@@ -9,6 +9,7 @@ from paramiko.ssh_exception import SSHException
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 
 from utils.redis_client import redis_client, redis_client_pickle
+from utils.utils import get_duration
 from config import Config
 from utils.db import DBConnect
 from logs.logger import Logger
@@ -37,12 +38,12 @@ class HomeServerConnector(threading.Thread):
         filepath = os.path.join(Config.MEDIA_PATH, filename)
         try:
             # отправка файла на удаленный сервер
-            self.logger.info(f'start upload {filename}')
+            self.logger.info(f'{filename} - start upload')
 
             start_time = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
-            duration = redis_client.get(filename)
+            duration = get_duration(filename)
             if duration:
-                finish_time = start_time + timedelta(seconds=int(duration) // Config.FPS)
+                finish_time = start_time + timedelta(seconds=int(duration))
                 sftp.put(filepath, os.path.join(self.destination_path, filename))
                 # подключение к базе данных
                 with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
@@ -51,9 +52,9 @@ class HomeServerConnector(threading.Thread):
                                     start_time=start_time,
                                     finish_time=finish_time)
             else:
-                self.logger.exception(f'Empty file {filename}')
-                os.remove(filepath)
+                self.logger.warning(f'Corrupt file {filename}')
                 redis_client.lpop('ready_to_send')
+                raise IOError
 
         except FileNotFoundError:
             redis_client.delete(filename)
@@ -66,7 +67,7 @@ class HomeServerConnector(threading.Thread):
             # удаление выгруженного файла из памяти и очереди в redis
             os.remove(filepath)
             redis_client.lpop('ready_to_send')
-            self.logger.info(f'{filepath} upload complete')
+            self.logger.info(f'{filename} - upload complete')
 
     def upload_requested_files(self, sftp):
         # получение имени файлов из очереди в redis сервере
@@ -79,7 +80,7 @@ class HomeServerConnector(threading.Thread):
             filepath = os.path.join(Config.MEDIA_PATH, 'temp', filename)
             try:
                 # отправка файла на удаленный сервер
-                self.logger.info(f'start upload {filename}')
+                self.logger.info(f'{filename} - start upload')
                 sftp.put(filepath, os.path.join(self.destination_path, filename))
                 start_time = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
                 finish_time = start_time + duration
@@ -101,7 +102,7 @@ class HomeServerConnector(threading.Thread):
                 # удаление выгруженного файла из памяти и очереди в redis
                 os.remove(filepath)
                 redis_client_pickle.lpop('ready_requested_videos')
-                self.logger.info(f'{filepath} upload complete')
+                self.logger.info(f'{filename} - upload complete')
 
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
             # запись данных о видео в удаленную бд
@@ -141,19 +142,20 @@ class HomeServerConnector(threading.Thread):
         """Отправка координат в удаленную базу данных"""
         # подключение к базе данных
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
-            for _ in range(redis_client.llen('coordinates')):
-                try:
-                    # получение и десериализация координат из очереди redis
-                    coordinates = pickle.loads(redis_client_pickle.lrange('coordinates', 0, 0)[0])
-                    # отправка координат в бд
-                    conn.add_coordinates(coordinates)
-                except Exception as e:
-                    self.logger.exception(f'Some error occurred, coordinates not uploaded: {e}')
+            if redis_client.llen('coordinates'):
+                for _ in range(redis_client.llen('coordinates')):
+                    try:
+                        # получение и десериализация координат из очереди redis
+                        coordinates = pickle.loads(redis_client_pickle.lrange('coordinates', 0, 0)[0])
+                        # отправка координат в бд
+                        conn.add_coordinates(coordinates)
+                    except Exception as e:
+                        self.logger.exception(f'Some error occurred, coordinates not uploaded: {e}')
+                    else:
+                        # удаление координат из очереди redis
+                        redis_client_pickle.lpop('coordinates')
                 else:
-                    # удаление координат из очереди redis
-                    redis_client_pickle.lpop('coordinates')
-            else:
-                self.logger.info(f'coordinates upload complete')
+                    self.logger.info(f'coordinates upload complete')
 
     def check_video_requests(self):
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
@@ -188,7 +190,6 @@ class HomeServerConnector(threading.Thread):
         self.check_video_requests()
         # Получение списка записанных файлов
         filenames = [file for file in os.listdir(Config.MEDIA_PATH) if 'BodyCam' not in file]
-        filenames.remove('temp')
 
         for _ in range(redis_client_pickle.llen('requests')):
             request = pickle.loads(redis_client_pickle.lpop('requests'))
@@ -201,7 +202,7 @@ class HomeServerConnector(threading.Thread):
 
                 # Парсинг имени файла
                 file_start = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
-                file_finish = file_start + timedelta(int(redis_client.get(filename)) // Config.FPS)
+                file_finish = file_start + timedelta(int(get_duration(filename)))
 
                 # Проверка видео, подходит ли оно под запрос и формирование видео
                 if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:

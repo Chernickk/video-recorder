@@ -5,6 +5,9 @@ from datetime import timedelta
 
 class Config:
     PATH = pathlib.Path(__file__).parent.resolve()
+    TEMP_PATH = os.path.join(PATH, 'temp')
+    MEDIA_PATH = os.path.join(PATH, 'media')
+
     CAMERAS = [
         # ('rtsp://login:password@127.0.0.1/1', 'CameraName'),
         # ('rtsp://login:password@127.0.0.1/1', 'CameraName'),
@@ -12,8 +15,10 @@ class Config:
         # ('rtsp://login:password@127.0.0.1/1', 'CameraName'),
     ]
 
-    MEDIA_PATH = os.path.join(PATH, 'media')
     VIDEO_DURATION = timedelta(hours=1)
+    DATETIME_FORMAT = '%Y-%m-%d_%H-%M-%S'
+    FPS = 15 # int
+    CHECK_MARKERS_INTERVAL = 30  # in seconds
 
     STORAGE_SERVER_URL = '192.168.1.1'
     STORAGE_SERVER_USERNAME = 'username'
