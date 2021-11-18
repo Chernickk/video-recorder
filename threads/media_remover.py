@@ -21,7 +21,8 @@ class MediaRemover(Thread):
         return free / 2**30
 
     def get_files_to_delete(self):
-        files = os.listdir(self.media_path).sort(reverse=True)
+        files = os.listdir(self.media_path)
+        files.sort()
         return files[:self.num_files_to_delete]
 
     def delete_files(self, files):

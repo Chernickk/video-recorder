@@ -150,6 +150,7 @@ class HomeServerConnector(threading.Thread):
                     sftp.get_channel().settimeout(30)
 
                     self.check_destination_path(sftp)
+                    self.upload_logs(sftp)
 
                     for _ in range(redis_client.llen('ready_to_send')):
                         self.upload_regular_file(sftp)
@@ -262,7 +263,6 @@ class HomeServerConnector(threading.Thread):
                     self.send_coordinates()
                     self.make_clips_by_request()
                     self.upload_files()
-                    self.upload_logs()
             except (AttributeError, SSHException, OperationalError) as e:
                 self.logger.info(f"Unable to connect: {e}")
             except Exception as e:
