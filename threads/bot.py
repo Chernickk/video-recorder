@@ -1,11 +1,11 @@
 import requests
-import subprocess
 from threading import Thread
 from datetime import timedelta
 from time import sleep
 
 from config import Config
 from utils.redis_client import redis_client
+from utils.utils import ping_server
 from logs.logger import Logger
 
 
@@ -28,15 +28,7 @@ class CarBot(Thread):
     def check_connection(self):
         status = False
         try:
-            ping_server = subprocess.Popen(
-                ('ping', Config.STORAGE_SERVER_URL, '-c', '2'),
-                stdout=subprocess.PIPE,
-                encoding='utf-8'
-            )
-
-            for line in ping_server.stdout:
-                if ' 0% packet loss' in line:
-                    status = True
+            ping_server(Config.STORAGE_SERVER_URL)
         except Exception as e:
             self.logger.exception(f"Bot error: {e}")
 

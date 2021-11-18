@@ -1,9 +1,23 @@
 import os
-import time
+
+import cv2
 
 from utils.redis_client import redis_client
 from config import Config
-import cv2
+
+
+def extract_name(filename):
+    """
+    :param filename:
+    :return: camera name: str
+    """
+    return filename.split('.')[0].split('_')[-1]
+
+
+def ping_server(host):
+    if os.system("ping -c 1 " + host) == 0:
+        return True
+    return False
 
 
 def check_unfinished_records():

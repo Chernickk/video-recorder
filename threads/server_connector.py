@@ -1,4 +1,5 @@
 import os
+import subprocess
 import threading
 import pickle
 from time import sleep
@@ -6,10 +7,9 @@ from datetime import datetime, timedelta
 
 import paramiko
 from paramiko.ssh_exception import SSHException
-from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
-
+from psycopg2 import OperationalError
 from utils.redis_client import redis_client, redis_client_pickle
-from utils.utils import get_duration
+from utils.utils import get_duration, extract_name, ping_server
 from config import Config
 from utils.db import DBConnect
 from logs.logger import Logger
@@ -23,7 +23,11 @@ class HomeServerConnector(threading.Thread):
         self.username = username
         self.password = password
         self.destination_path = destination_path
+        self.network_status = True
         self.logger = Logger('HomeServerConnector')
+
+    def check_connection(self):
+        self.network_status = ping_server(Config.STORAGE_SERVER_URL)
 
     def check_destination_path(self, sftp_client):
         try:
@@ -164,32 +168,38 @@ class HomeServerConnector(threading.Thread):
             for request in requests:
                 redis_client_pickle.lpush('requests', pickle.dumps(request))
 
-    def make_clip(self, filename, file_start, start_time, finish_time):
-        file_full_path = os.path.join(Config.MEDIA_PATH, filename)
+    def merge_clips(self, clips):
+        camera_names = [camera[1] for camera in Config.CAMERAS]
+        result_files = []
 
-        # Получение смещений для вырезки части клипа
-        start_offset = start_time - file_start
-        finish_offset = finish_time - file_start
+        for camera in camera_names:
+            camera_clips = [clip for clip in clips if camera in clip]
+            if camera_clips:
+                camera_clips.sort()
 
-        # Формирование имени выходного файла
-        out_filename = f'{datetime.strftime(start_time, Config.DATETIME_FORMAT)}_' \
-                       f'{filename.split("_")[-1]}'
-        out_full_path = os.path.join(Config.MEDIA_PATH, "temp", out_filename)
+                output_name = f'all_{camera_clips[0]}'
 
-        # Формирования выходного файла
-        ffmpeg_extract_subclip(
-            file_full_path,
-            start_offset.total_seconds(),
-            finish_offset.total_seconds(),
-            targetname=out_full_path)
+                output_path = os.path.join(Config.TEMP_PATH, output_name)
+                first_file = os.path.join(Config.MEDIA_PATH, camera_clips[0])
 
-        return out_filename
+                other_files = [f'+{os.path.join(Config.MEDIA_PATH, camera_clip)}' for camera_clip in camera_clips[1:]]
+                command = ['mkvmerge',
+                           '-o', output_path,
+                           first_file]
+                command += other_files
+
+                subprocess.call(command)
+
+                result_files.append(output_name)
+
+        return result_files
 
     def make_clips_by_request(self):
         # Получение запросов
         self.check_video_requests()
         # Получение списка записанных файлов
-        filenames = [file for file in os.listdir(Config.MEDIA_PATH) if 'BodyCam' not in file]
+        camera_names = [cam[1] for cam in Config.CAMERAS]
+        filenames = [file for file in os.listdir(Config.MEDIA_PATH) if extract_name(file) in camera_names]
 
         for _ in range(redis_client_pickle.llen('requests')):
             request = pickle.loads(redis_client_pickle.lpop('requests'))
@@ -206,24 +216,15 @@ class HomeServerConnector(threading.Thread):
 
                 # Проверка видео, подходит ли оно под запрос и формирование видео
                 if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:
-                    out_filename = self.make_clip(filename,
-                                                  file_start,
-                                                  start_time=start_time,
-                                                  finish_time=finish_time)
-
-                    request_files.append(out_filename)
+                    request_files.append(filename)
+                elif start_time <= file_start and file_finish <= finish_time:
+                    request_files.append(filename)
                 elif file_start <= start_time <= file_finish:
-                    out_filename = self.make_clip(filename,
-                                                  file_start,
-                                                  start_time=start_time,
-                                                  finish_time=file_finish)
-                    request_files.append(out_filename)
+                    request_files.append(filename)
                 elif file_start <= finish_time <= file_finish:
-                    out_filename = self.make_clip(filename,
-                                                  file_start,
-                                                  start_time=file_start,
-                                                  finish_time=finish_time)
-                    request_files.append(out_filename)
+                    request_files.append(filename)
+
+            request_files = self.merge_clips(request_files)
 
             result_dict = {
                 'request_pk': request['id'],
@@ -242,13 +243,13 @@ class HomeServerConnector(threading.Thread):
 
         while True:
             try:
-                self.send_coordinates()
-                self.make_clips_by_request()
-                self.upload_files()
-            except AttributeError as e:
-                self.logger.info(f"no connection, will try later {e}")
-            except SSHException as e:
-                self.logger.info(f"no connection, {e}")
+                self.check_connection()
+                if self.network_status:
+                    self.send_coordinates()
+                    self.make_clips_by_request()
+                    self.upload_files()
+            except (AttributeError, SSHException, OperationalError) as e:
+                self.logger.info(f"Unable to connect: {e}")
             except Exception as e:
                 self.logger.exception(f"Unexpected error: {e}")
             sleep(Config.VIDEO_DURATION.total_seconds() // 6)

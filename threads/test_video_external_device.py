@@ -2,14 +2,13 @@ import os
 from datetime import timedelta, datetime
 from time import sleep
 from threading import Thread
-from multiprocessing import Process
 import subprocess
 
 import psutil
-from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 
 from utils.utils import get_duration
 from config import Config
+from logs.logger import Logger
 
 
 class ExportMovieToExternalDrive(Thread):
@@ -18,6 +17,7 @@ class ExportMovieToExternalDrive(Thread):
         self.check_interval = timedelta(minutes=1)
         self.disk_partitions = psutil.disk_partitions()
         self.new_device = None
+        self.logger = Logger('exporter')
 
     def check_new_partitions(self):
         partitions = psutil.disk_partitions()
@@ -28,32 +28,6 @@ class ExportMovieToExternalDrive(Thread):
 
         self.disk_partitions = partitions
 
-    def make_clip(self, filename, start_time=None, finish_time=None):
-        file_start = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
-        if not start_time:
-            start_time = file_start
-        if not finish_time:
-            finish_time = file_start + timedelta(seconds=get_duration(filename))
-        file_full_path = os.path.join(Config.MEDIA_PATH, filename)
-
-        # Получение смещений для вырезки части клипа
-        start_offset = start_time - file_start
-        finish_offset = finish_time - file_start
-
-        # Формирование имени выходного файла
-        out_filename = f'{datetime.strftime(start_time, Config.DATETIME_FORMAT)}_' \
-                       f'{filename.split("_")[-1]}'
-        out_full_path = os.path.join(Config.TEMP_PATH, out_filename)
-
-        # Формирования выходного файла
-        ffmpeg_extract_subclip(
-            file_full_path,
-            start_offset.total_seconds(),
-            finish_offset.total_seconds(),
-            targetname=out_full_path)
-
-        return out_filename
-
     def merge_clips(self, clips):
         camera_names = [camera[1] for camera in Config.CAMERAS]
         result_files = []
@@ -62,10 +36,13 @@ class ExportMovieToExternalDrive(Thread):
             camera_clips = [clip for clip in clips if camera in clip]
             if camera_clips:
                 camera_clips.sort()
+
                 output_name = f'all_{camera_clips[0]}'
+
                 output_path = os.path.join(Config.TEMP_PATH, output_name)
-                first_file = os.path.join(Config.TEMP_PATH, camera_clips[0])
-                other_files = [f'+{os.path.join(Config.TEMP_PATH, camera_clip)}' for camera_clip in camera_clips[1:]]
+                first_file = os.path.join(Config.MEDIA_PATH, camera_clips[0])
+
+                other_files = [f'+{os.path.join(Config.MEDIA_PATH, camera_clip)}' for camera_clip in camera_clips[1:]]
                 command = ['mkvmerge',
                            '-o', output_path,
                            first_file]
@@ -75,18 +52,14 @@ class ExportMovieToExternalDrive(Thread):
 
                 result_files.append(output_name)
 
-            for file in camera_clips:
-                os.remove(os.path.join(Config.TEMP_PATH, file))
-
         return result_files
-
 
     def make_clips_for_export(self):
         finish_time = datetime.now()
-        start_time = finish_time - timedelta(minutes=15)
+        start_time = finish_time - timedelta(minutes=20)
 
         # Получение списка записанных файлов
-        filenames = [file for file in os.listdir(Config.MEDIA_PATH) if 'BodyCam' not in file]
+        filenames = os.listdir(Config.MEDIA_PATH)
 
         request_files = []
         for filename in filenames:
@@ -96,27 +69,18 @@ class ExportMovieToExternalDrive(Thread):
             duration = get_duration(filename)
             if not duration:
                 continue
+
             file_finish = file_start + timedelta(seconds=duration)
 
             # Проверка видео, подходит ли оно под запрос и формирование клипов
             if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:
-                out_filename = self.make_clip(filename,
-                                              start_time=start_time,
-                                              finish_time=finish_time)
-
-                request_files.append(out_filename)
+                request_files.append(filename)
             elif start_time <= file_start and file_finish <= finish_time:
-                out_filename = self.make_clip(filename)
-                request_files.append(out_filename)
-
+                request_files.append(filename)
             elif file_start <= start_time <= file_finish:
-                out_filename = self.make_clip(filename,
-                                              start_time=start_time, )
-                request_files.append(out_filename)
+                request_files.append(filename)
             elif file_start <= finish_time <= file_finish:
-                out_filename = self.make_clip(filename,
-                                              finish_time=finish_time)
-                request_files.append(out_filename)
+                request_files.append(filename)
 
         request_files = self.merge_clips(request_files)
 
@@ -130,12 +94,16 @@ class ExportMovieToExternalDrive(Thread):
                     for line in input_file:
                         out_file.write(line)
             os.remove(os.path.join(Config.TEMP_PATH, file))
-        print('files export success')
+        self.logger.info('Files exported to flash drive!')
 
     def run(self):
         while True:
-            self.check_new_partitions()
-            sleep(20)
+            try:
+                self.check_new_partitions()
+            except Exception as e:
+                self.logger.exception(f'Unexpected error: {e}')
+            finally:
+                sleep(20)
 
 
 if __name__ == '__main__':

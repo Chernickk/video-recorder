@@ -1,5 +1,4 @@
 import os
-import subprocess
 from time import sleep
 
 from threads.cam_recorder import CamRecorder, ArUcoCamRecorder
@@ -27,13 +26,13 @@ if __name__ == '__main__':
 
     check_unfinished_records()  # добавление файлов, которые не записались до конца, в очередь на выгрузку
 
-    video_uploader = HomeServerConnector(
-        url=Config.STORAGE_SERVER_URL,
-        username=Config.STORAGE_SERVER_USERNAME,
-        password=Config.STORAGE_SERVER_PASSWORD,
-        destination_path=Config.DESTINATION_PATH
-    )
-    video_uploader.start()
+    # server_connector = HomeServerConnector(
+    #     url=Config.STORAGE_SERVER_URL,
+    #     username=Config.STORAGE_SERVER_USERNAME,
+    #     password=Config.STORAGE_SERVER_PASSWORD,
+    #     destination_path=Config.DESTINATION_PATH
+    # )
+    # server_connector.start()
     #
     # gps_tracker = GPSEmulator()
     # gps_tracker.start()
@@ -49,23 +48,24 @@ if __name__ == '__main__':
 
     # sleep(30)  # Ожидание инициализации камер
 
+    for url, name in Config.ARUCO_CAMERAS:
+        cam_recorder = ArUcoCamRecorder(
+            url=url,
+            camera_name=name,
+            video_loop_size=Config.VIDEO_DURATION,
+            media_path=Config.MEDIA_PATH,
+            fps=Config.FPS,
+        )
+        cam_recorder.start()
+
     for url, name in Config.CAMERAS:
-        if name == 'BodyCam':
-            cam_recorder = ArUcoCamRecorder(
-                url=url,
-                camera_name=name,
-                video_loop_size=Config.VIDEO_DURATION,
-                media_path=Config.MEDIA_PATH,
-                fps=Config.FPS,
-            )
-        else:
-            cam_recorder = CamRecorder(
-                url=url,
-                camera_name=name,
-                video_loop_size=Config.VIDEO_DURATION,
-                media_path=Config.MEDIA_PATH,
-                fps=Config.FPS,
-            )
+        cam_recorder = CamRecorder(
+            url=url,
+            camera_name=name,
+            video_loop_size=Config.VIDEO_DURATION,
+            media_path=Config.MEDIA_PATH,
+            fps=Config.FPS,
+        )
         cam_recorder.start()
 
     media_exporter = ExportMovieToExternalDrive()

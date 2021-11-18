@@ -4,14 +4,10 @@ from threading import Thread
 from time import sleep
 
 from logs.logger import Logger
-from utils.redis_client import redis_client
 
 
 class MediaRemover(Thread):
-    def __init__(self,
-                 check_interval=3600,
-                 min_free_space=10,
-                 media_path='media'):
+    def __init__(self, check_interval=3600, min_free_space=10, media_path='media'):
         super().__init__()
         self.check_interval = check_interval
         self.min_free_space = min_free_space  # Gb
@@ -25,13 +21,12 @@ class MediaRemover(Thread):
         return free / 2**30
 
     def get_files_to_delete(self):
-        files = os.listdir(self.media_path).sort(key=lambda x: os.path.getctime(x))
+        files = os.listdir(self.media_path).sort(reverse=True)
         return files[:self.num_files_to_delete]
 
     def delete_files(self, files):
         for file in files:
             os.remove(os.path.join(self.media_path, file))
-            redis_client.delete(file)
             self.logger.info(f'{file} has been removed')
 
     def run(self):
