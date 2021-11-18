@@ -7,6 +7,7 @@ from time import sleep
 import cv2
 
 from utils.redis_client import redis_client
+from utils.error import RTSPError
 from logs.logger import Logger
 from config import Config
 
@@ -29,9 +30,10 @@ class CamRecorder(threading.Thread):
 
     def check_capture(self):
         """ Проверка получения видео из rtsp стрима """
-        status, _ = self.capture.read()
-        if not status or not self.capture.isOpened():
-            raise IOError(f'Stream stopped. Frame status: {status}, capture: {self.capture.isOpened()}')
+        frame_status, _ = self.capture.read()
+        stream_status = self.capture.isOpened()
+        if not frame_status or not stream_status:
+            raise RTSPError(frame_status, stream_status)
 
         return True
 
@@ -96,8 +98,11 @@ class CamRecorder(threading.Thread):
                 if self.check_capture() and self.initial_check():
                     self.record_video()
 
-            except Exception as e:
+            except RTSPError as e:
+                self.logger.warning(e)
+                sleep(30)
 
+            except Exception as e:
                 self.logger.warning(f'Unexpected recorder error: {e}')
                 self.capture.release()
                 sleep(30)
@@ -181,9 +186,11 @@ class ArUcoCamRecorder(CamRecorder):
                         redis_client.rpush('ready_to_send', filename)
                 else:
                     sleep(30)
+            except RTSPError as e:
+                self.logger.warning(e)
+                sleep(30)
 
             except Exception as e:
-
                 self.logger.exception(f'Unexpected recorder error: {e}')
                 self.capture.release()
                 sleep(30)
