@@ -26,19 +26,16 @@ if __name__ == '__main__':
 
     check_unfinished_records()  # добавление файлов, которые не записались до конца, в очередь на выгрузку
 
-    server_connector = HomeServerConnector(
-        url=Config.STORAGE_SERVER_URL,
-        username=Config.STORAGE_SERVER_USERNAME,
-        password=Config.STORAGE_SERVER_PASSWORD,
-        destination_path=Config.DESTINATION_PATH
-    )
-    server_connector.start()
-
-    # gps_tracker = GPSEmulator()
-    # gps_tracker.start()
-
-    car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CHAT_ID, Config.CAR_ID)
-    car_bot.start()
+    # server_connector = HomeServerConnector(
+    #     url=Config.STORAGE_SERVER_URL,
+    #     username=Config.STORAGE_SERVER_USERNAME,
+    #     password=Config.STORAGE_SERVER_PASSWORD,
+    #     destination_path=Config.DESTINATION_PATH
+    # )
+    # server_connector.start()
+    #
+    # car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CHAT_ID, Config.CAR_ID)
+    # car_bot.start()
 
     media_remover = MediaRemover(check_interval=Config.VIDEO_DURATION.total_seconds(),
                                  media_path=Config.MEDIA_PATH)
@@ -68,3 +65,7 @@ if __name__ == '__main__':
 
     media_exporter = ExportMovieToExternalDrive()
     media_exporter.start()
+
+    # gps_tracker = GPSEmulator()
+    # gps_tracker.start()
+    #
