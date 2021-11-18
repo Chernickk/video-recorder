@@ -114,6 +114,20 @@ class HomeServerConnector(threading.Thread):
 
             conn.set_request_status(pk=pk, status=status)
 
+    def upload_logs(self, sftp):
+        try:
+            sftp.chdir(os.path.join(self.destination_path, 'logs'))
+        except IOError:
+            sftp.mkdir(os.path.join(self.destination_path, 'logs'))
+
+        try:
+            local_logs_path = os.path.join(Config.PATH, 'logs', 'data', 'logs.log')
+            out_filename = f'{datetime.now().strftime(Config.DATETIME_FORMAT)}_logs.log'
+            remote_path = os.path.join(self.destination_path, out_filename)
+            sftp.put(local_logs_path, remote_path)
+        except OSError as e:
+            self.logger.exception(f'Some error occurred, logs not uploaded: {e}')
+
     def upload_files(self):
         """
         Выгрузка файлов на сервер с помощью SFTP
@@ -248,6 +262,7 @@ class HomeServerConnector(threading.Thread):
                     self.send_coordinates()
                     self.make_clips_by_request()
                     self.upload_files()
+                    self.upload_logs()
             except (AttributeError, SSHException, OperationalError) as e:
                 self.logger.info(f"Unable to connect: {e}")
             except Exception as e:
