@@ -49,7 +49,7 @@ class CamRecorder(threading.Thread):
 
         return True
 
-    def make_filename(self):
+    def create_filename(self):
         datetime_string = datetime.strftime(datetime.now(), Config.DATETIME_FORMAT)
 
         return f'{datetime_string}_{self.filename}'
@@ -57,7 +57,7 @@ class CamRecorder(threading.Thread):
     def record_video(self):
         """ Запись одного видеофайла """
         # формирования строки с датой для названия видеофайла
-        filename = self.make_filename()
+        filename = self.create_filename()
 
         # создание экземпляра обьекта записи видео
         command = ['ffmpeg',
@@ -140,7 +140,7 @@ class ArUcoCamRecorder(CamRecorder):
     def record_video(self):
         """ Запись одного видеофайла """
         # формирования строки с датой для названия видеофайла
-        filename = self.make_filename()
+        filename = self.create_filename()
 
         # создание экземпляра обьекта записи видео
         command = ['ffmpeg',

@@ -212,7 +212,7 @@ class HomeServerConnector(threading.Thread):
 
         return result_files
 
-    def make_clips_by_request(self):
+    def create_clips_by_request(self):
         # Получение запросов
         self.check_video_requests()
         # Получение списка записанных файлов
@@ -267,7 +267,7 @@ class HomeServerConnector(threading.Thread):
                 self.check_connection()
                 if self.network_status:
                     self.send_coordinates()
-                    self.make_clips_by_request()
+                    self.create_clips_by_request()
                     self.upload_files()
             except (AttributeError, SSHException, OperationalError) as e:
                 self.logger.info(f"Unable to connect: {e}")

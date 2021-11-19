@@ -54,7 +54,7 @@ class ExportMovieToExternalDrive(Thread):
 
         return result_files
 
-    def make_clips_for_export(self):
+    def create_clips_for_export(self):
         finish_time = datetime.now()
         start_time = finish_time - timedelta(minutes=20)
 
@@ -87,7 +87,7 @@ class ExportMovieToExternalDrive(Thread):
         return request_files
 
     def upload_latest_files_to_external_device(self):
-        files = self.make_clips_for_export()
+        files = self.create_clips_for_export()
         for file in files:
             with open(os.path.join(self.new_device.mountpoint, file), 'wb') as out_file:
                 with open(os.path.join(Config.TEMP_PATH, file), 'rb') as input_file:
