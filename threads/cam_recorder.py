@@ -189,6 +189,7 @@ class ArUcoCamRecorder(CamRecorder):
             except RTSPError as e:
                 self.logger.warning(e)
                 sleep(30)
+                self.capture = cv2.VideoCapture(self.url)
 
             except Exception as e:
                 self.logger.exception(f'Unexpected recorder error: {e}')
