@@ -107,8 +107,9 @@ class HomeServerConnector(threading.Thread):
             else:
                 # удаление выгруженного файла из памяти и очереди в redis
                 os.remove(filepath)
-                redis_client_pickle.lpop('ready_requested_videos')
                 self.logger.info(f'{filename} - upload complete')
+        else:
+            redis_client_pickle.lpop('ready_requested_videos')
 
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
             # запись данных о видео в удаленную бд
@@ -154,8 +155,6 @@ class HomeServerConnector(threading.Thread):
 
                     self.check_destination_path(sftp)
                     self.upload_logs(sftp)
-                    print(redis_client.llen('ready_to_send'))
-                    print(redis_client.llen('ready_requested_videos'))
                     for _ in range(redis_client.llen('ready_to_send')):
                         self.upload_regular_file(sftp)
                     for _ in range(redis_client.llen('ready_requested_videos')):
@@ -231,7 +230,10 @@ class HomeServerConnector(threading.Thread):
 
                 # Парсинг имени файла
                 file_start = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
-                file_finish = file_start + timedelta(seconds=int(get_duration(filename)))
+                duration = int(get_duration(filename))
+                if not duration:
+                    continue
+                file_finish = file_start + timedelta(seconds=duration)
 
                 # Проверка видео, подходит ли оно под запрос и формирование видео
                 if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:
@@ -257,7 +259,7 @@ class HomeServerConnector(threading.Thread):
         """
         Запуск бесконечного цикла.
         Попытка выгрузки файлов и координат в каждой итерации.
-        В случае неудачи следущая попытка осуществляется через (хронометраж видео / 6).
+        В случае неудачи следущая попытка осуществляется через (хронометраж видео).
         """
 
         while True:
