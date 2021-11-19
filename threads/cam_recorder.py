@@ -20,7 +20,7 @@ class CamRecorder(threading.Thread):
         self.url = url
         self.fps = fps
         self.camera_name = camera_name
-        self.filename = f'_{self.camera_name}.mp4'
+        self.filename = f'{self.camera_name}.mp4'
         self.width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.out = None
@@ -49,7 +49,7 @@ class CamRecorder(threading.Thread):
 
         return True
 
-    def make_filename(self):
+    def create_filename(self):
         datetime_string = datetime.strftime(datetime.now(), Config.DATETIME_FORMAT)
 
         return f'{datetime_string}_{self.filename}'
@@ -57,7 +57,7 @@ class CamRecorder(threading.Thread):
     def record_video(self):
         """ Запись одного видеофайла """
         # формирования строки с датой для названия видеофайла
-        filename = self.make_filename()
+        filename = self.create_filename()
 
         # создание экземпляра обьекта записи видео
         command = ['ffmpeg',
@@ -140,7 +140,7 @@ class ArUcoCamRecorder(CamRecorder):
     def record_video(self):
         """ Запись одного видеофайла """
         # формирования строки с датой для названия видеофайла
-        filename = self.make_filename()
+        filename = self.create_filename()
 
         # создание экземпляра обьекта записи видео
         command = ['ffmpeg',
@@ -189,6 +189,7 @@ class ArUcoCamRecorder(CamRecorder):
             except RTSPError as e:
                 self.logger.warning(e)
                 sleep(30)
+                self.capture = cv2.VideoCapture(self.url)
 
             except Exception as e:
                 self.logger.exception(f'Unexpected recorder error: {e}')

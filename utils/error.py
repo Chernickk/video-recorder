@@ -8,4 +8,4 @@ class RTSPError(Exception):
         if not self.stream_status:
             return "Stream closed"
         if not self.frame_status:
-            return "Empty frame from string"
+            return "Empty frame from stream"

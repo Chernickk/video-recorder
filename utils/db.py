@@ -62,7 +62,7 @@ class DBConnect:
         return results
 
     def set_request_status(self, pk, status: bool):
-        request = self.session.query(self.RecordRequest).get(id=pk)
+        request = self.session.query(self.RecordRequest).filter_by(id=pk).first()
 
         request.record_status = status
         self.session.commit()

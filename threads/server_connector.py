@@ -58,6 +58,7 @@ class HomeServerConnector(threading.Thread):
             else:
                 self.logger.warning(f'Corrupt file {filename}')
                 redis_client.lpop('ready_to_send')
+                os.remove(filepath)  # TODO remove it
                 raise IOError
 
         except FileNotFoundError:
@@ -81,7 +82,7 @@ class HomeServerConnector(threading.Thread):
         duration = request['duration']
 
         for filename in files:
-            filepath = os.path.join(Config.MEDIA_PATH, 'temp', filename)
+            filepath = os.path.join(Config.TEMP_PATH, filename)
             try:
                 # отправка файла на удаленный сервер
                 self.logger.info(f'{filename} - start upload')
@@ -97,6 +98,7 @@ class HomeServerConnector(threading.Thread):
                                     finish_time=finish_time,
                                     pk=pk)
             except FileNotFoundError:
+                self.logger.warning('Not found file to upload')
                 redis_client_pickle.lpop('ready_requested_videos')
             except OSError as e:
                 self.logger.exception(f'Some error occurred, {filename} not uploaded: {e}')
@@ -105,14 +107,30 @@ class HomeServerConnector(threading.Thread):
             else:
                 # удаление выгруженного файла из памяти и очереди в redis
                 os.remove(filepath)
-                redis_client_pickle.lpop('ready_requested_videos')
                 self.logger.info(f'{filename} - upload complete')
+        else:
+            redis_client_pickle.lpop('ready_requested_videos')
 
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
             # запись данных о видео в удаленную бд
             status = True if files else False
 
             conn.set_request_status(pk=pk, status=status)
+
+    def upload_logs(self, sftp):
+        remote_path = os.path.join(self.destination_path, '..', 'logs')
+        try:
+            sftp.chdir(remote_path)
+        except IOError:
+            sftp.mkdir(remote_path)
+
+        try:
+            local_logs_path = os.path.join(Config.PATH, 'logs', 'data', 'logs.log')
+            out_filename = f'Car{Config.CAR_ID}_logs.log'
+            remote_file_path = os.path.join(remote_path, out_filename)
+            sftp.put(local_logs_path, remote_file_path)
+        except OSError as e:
+            self.logger.exception(f'Some error occurred, logs not uploaded: {e}')
 
     def upload_files(self):
         """
@@ -136,7 +154,7 @@ class HomeServerConnector(threading.Thread):
                     sftp.get_channel().settimeout(30)
 
                     self.check_destination_path(sftp)
-
+                    self.upload_logs(sftp)
                     for _ in range(redis_client.llen('ready_to_send')):
                         self.upload_regular_file(sftp)
                     for _ in range(redis_client.llen('ready_requested_videos')):
@@ -177,7 +195,7 @@ class HomeServerConnector(threading.Thread):
             if camera_clips:
                 camera_clips.sort()
 
-                output_name = f'all_{camera_clips[0]}'
+                output_name = f'{camera_clips[0].split(".")[0]}_all.mp4'
 
                 output_path = os.path.join(Config.TEMP_PATH, output_name)
                 first_file = os.path.join(Config.MEDIA_PATH, camera_clips[0])
@@ -194,7 +212,7 @@ class HomeServerConnector(threading.Thread):
 
         return result_files
 
-    def make_clips_by_request(self):
+    def create_clips_by_request(self):
         # Получение запросов
         self.check_video_requests()
         # Получение списка записанных файлов
@@ -212,7 +230,10 @@ class HomeServerConnector(threading.Thread):
 
                 # Парсинг имени файла
                 file_start = datetime.strptime(filename[:19], Config.DATETIME_FORMAT)
-                file_finish = file_start + timedelta(int(get_duration(filename)))
+                duration = int(get_duration(filename))
+                if not duration:
+                    continue
+                file_finish = file_start + timedelta(seconds=duration)
 
                 # Проверка видео, подходит ли оно под запрос и формирование видео
                 if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:
@@ -238,7 +259,7 @@ class HomeServerConnector(threading.Thread):
         """
         Запуск бесконечного цикла.
         Попытка выгрузки файлов и координат в каждой итерации.
-        В случае неудачи следущая попытка осуществляется через (хронометраж видео / 6).
+        В случае неудачи следущая попытка осуществляется через (хронометраж видео).
         """
 
         while True:
@@ -246,10 +267,10 @@ class HomeServerConnector(threading.Thread):
                 self.check_connection()
                 if self.network_status:
                     self.send_coordinates()
-                    self.make_clips_by_request()
+                    self.create_clips_by_request()
                     self.upload_files()
             except (AttributeError, SSHException, OperationalError) as e:
                 self.logger.info(f"Unable to connect: {e}")
             except Exception as e:
                 self.logger.exception(f"Unexpected error: {e}")
-            sleep(Config.VIDEO_DURATION.total_seconds() // 6)
+            sleep(Config.VIDEO_DURATION.total_seconds())
