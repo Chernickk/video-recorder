@@ -24,6 +24,10 @@ if __name__ == '__main__':
     logger.info('_'*50)
     logger.info('Start')
 
+    media_exporter = ExportMovieToExternalDrive()
+    media_exporter.start()
+
+
     check_unfinished_records()  # добавление файлов, которые не записались до конца, в очередь на выгрузку
 
     server_connector = HomeServerConnector(
@@ -34,10 +38,10 @@ if __name__ == '__main__':
     )
     server_connector.start()
 
-    car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CHAT_ID, Config.CAR_ID)
-    car_bot.start()
+    # car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CHAT_ID, Config.CAR_ID)
+    # car_bot.start()
 
-    media_remover = MediaRemover(check_interval=Config.VIDEO_DURATION.total_seconds(),
+    media_remover = MediaRemover(check_interval=(Config.VIDEO_DURATION.total_seconds() // 2),
                                  media_path=Config.MEDIA_PATH)
     media_remover.start()
 
@@ -63,8 +67,6 @@ if __name__ == '__main__':
         )
         cam_recorder.start()
 
-    media_exporter = ExportMovieToExternalDrive()
-    media_exporter.start()
 
     # gps_tracker = GPSEmulator()
     # gps_tracker.start()

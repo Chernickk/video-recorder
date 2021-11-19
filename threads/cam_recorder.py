@@ -20,7 +20,7 @@ class CamRecorder(threading.Thread):
         self.url = url
         self.fps = fps
         self.camera_name = camera_name
-        self.filename = f'_{self.camera_name}.mp4'
+        self.filename = f'{self.camera_name}.mp4'
         self.width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.out = None

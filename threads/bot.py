@@ -28,7 +28,7 @@ class CarBot(Thread):
     def check_connection(self):
         status = False
         try:
-            ping_server(Config.STORAGE_SERVER_URL)
+            status = ping_server(Config.STORAGE_SERVER_URL)
         except Exception as e:
             self.logger.exception(f"Bot error: {e}")
 
