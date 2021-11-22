@@ -8,6 +8,7 @@ import cv2
 
 from utils.redis_client import redis_client
 from utils.error import RTSPError
+from utils.variables import READY_TO_UPLOAD
 from logs.logger import Logger
 from config import Config
 
@@ -183,7 +184,7 @@ class ArUcoCamRecorder(CamRecorder):
                 if self.check_capture() and self.initial_check():
                     filename = self.record_video()
                     if filename:
-                        redis_client.rpush('ready_to_send', filename)
+                        redis_client.rpush(READY_TO_UPLOAD, filename)
                 else:
                     sleep(30)
             except RTSPError as e:

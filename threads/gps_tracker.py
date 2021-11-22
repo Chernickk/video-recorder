@@ -7,6 +7,7 @@ from datetime import datetime
 
 from utils.redis_client import redis_client_pickle
 from logs.logger import Logger
+from utils.variables import COORDINATES
 
 
 class GPSEmulator(threading.Thread):
@@ -32,7 +33,7 @@ class GPSEmulator(threading.Thread):
         while True:
             try:
                 coords = self.get_coordinates()
-                redis_client_pickle.rpush('coordinates', pickle.dumps(coords))
+                redis_client_pickle.rpush(COORDINATES, pickle.dumps(coords))
 
                 sleep(120)
             except Exception as e:

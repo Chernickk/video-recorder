@@ -6,6 +6,7 @@ from time import sleep
 from config import Config
 from utils.redis_client import redis_client
 from utils.utils import ping_server
+from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, ERROR_MESSAGES
 from logs.logger import Logger
 
 
@@ -40,7 +41,7 @@ class CarBot(Thread):
             self.network_status = False
 
     def check_regular_files(self):
-        files_to_upload = redis_client.llen('ready_to_send')
+        files_to_upload = redis_client.llen(READY_TO_UPLOAD)
 
         if self.has_files_to_upload and not files_to_upload:
             self.send_message(f'Машина {self.car_id}. Записи выгружены на сервер')
@@ -49,7 +50,7 @@ class CarBot(Thread):
             self.has_files_to_upload = True
 
     def check_requested_files(self):
-        files_to_upload = redis_client.llen('ready_requested_videos')
+        files_to_upload = redis_client.llen(READY_REQUESTED_FILES)
 
         if self.has_requested_files_to_upload and not files_to_upload:
             self.send_message(f'Машина {self.car_id}. Запрошенные записи выгружены на сервер')
@@ -58,8 +59,8 @@ class CarBot(Thread):
             self.has_requested_files_to_upload = True
 
     def check_errors(self):
-        for _ in range(redis_client.llen('error_messages')):
-            message = redis_client.lpop('error_messages')
+        for _ in range(redis_client.llen(ERROR_MESSAGES)):
+            message = redis_client.lpop(ERROR_MESSAGES)
             self.send_message(message)
 
     def run(self):

@@ -1,0 +1,5 @@
+READY_TO_UPLOAD = 'ready_to_send'
+READY_REQUESTED_FILES = 'ready_requested_videos'
+REQUESTS = 'requests'
+ERROR_MESSAGES = 'error_messages'
+COORDINATES = 'coordinates'

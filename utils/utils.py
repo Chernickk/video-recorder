@@ -6,6 +6,10 @@ from utils.redis_client import redis_client
 from config import Config
 
 
+def extract_datetime(filename):
+    return filename[:19]
+
+
 def extract_name(filename):
     """
     :param filename:

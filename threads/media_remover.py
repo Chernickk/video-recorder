@@ -11,7 +11,7 @@ class MediaRemover(Thread):
         super().__init__()
         self.check_interval = check_interval
         self.min_free_space = min_free_space  # Gb
-        self.num_files_to_delete = 4
+        self.num_files_to_delete = 12
         self.media_path = media_path
         self.logger = Logger('MediaRemover')
 
