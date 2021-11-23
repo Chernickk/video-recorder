@@ -132,6 +132,6 @@ config.py
 
 #custom
 *.mp4
-*.png
 *.log
 *.zip
+*.png

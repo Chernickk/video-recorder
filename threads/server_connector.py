@@ -9,7 +9,7 @@ from paramiko.sftp_client import SFTPClient
 from paramiko.ssh_exception import SSHException
 from psycopg2 import OperationalError
 from utils.redis_client import redis_client, redis_client_pickle
-from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips
+from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips, get_clips_by_name
 from utils.db import DBConnect
 from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, COORDINATES, REQUESTS
 from config import Config
@@ -89,7 +89,6 @@ class HomeServerConnector(threading.Thread):
         request = pickle.loads(redis_client_pickle.lrange(READY_REQUESTED_FILES, 0, 0)[0])
         pk = request['request_pk']
         files = request['files']
-        duration = request['duration']
         try:
             for filename in files:
                 filepath = os.path.join(Config.TEMP_PATH, filename)
@@ -98,14 +97,13 @@ class HomeServerConnector(threading.Thread):
                 self.logger.info(f'{filename} - start upload')
                 sftp.put(filepath, os.path.join(self.destination_path, filename))
                 start_time = datetime.strptime(extract_datetime(filename), Config.DATETIME_FORMAT)
-                finish_time = start_time + duration
 
                 # подключение к базе данных
                 with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
                     # запись данных о видео в удаленную бд
                     conn.add_record(filename=filename,
                                     start_time=start_time,
-                                    finish_time=finish_time,
+                                    finish_time=None,
                                     pk=pk)
 
                 os.remove(filepath)
@@ -202,50 +200,53 @@ class HomeServerConnector(threading.Thread):
 
     def create_clips_by_request(self) -> None:
         """
-        Create clips, which are suitable for request
+        Create clips, for request
         Push clips names to redis queue
         """
-        # Получение запросов
-        self.check_video_requests()
-        # Получение списка записанных файлов
-        camera_names = [cam[1] for cam in Config.CAMERAS]
-        filenames = [file for file in os.listdir(Config.MEDIA_PATH) if extract_name(file) in camera_names]
-
         for _ in range(redis_client_pickle.llen(REQUESTS)):
+            # Получение запроса
             request = pickle.loads(redis_client_pickle.lpop(REQUESTS))
+            clips = self.find_clips_by_request(request)
+            camera_names = [cam[1] for cam in Config.CAMERAS] + [cam[1] for cam in Config.ARUCO_CAMERAS]
 
-            request_files = []
-            start_time = request['start_time'].replace(tzinfo=None)
-            finish_time = request['finish_time'].replace(tzinfo=None)
-
-            for filename in filenames:
-
-                # Парсинг имени файла
-                file_start = datetime.strptime(extract_datetime(filename), Config.DATETIME_FORMAT)
-                duration = int(get_duration(filename))
-                if not duration:
-                    continue
-                file_finish = file_start + timedelta(seconds=duration)
-
-                # Проверка видео, подходит ли оно под запрос и формирование видео
-                if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:
-                    request_files.append(filename)
-                elif start_time <= file_start and file_finish <= finish_time:
-                    request_files.append(filename)
-                elif file_start <= start_time <= file_finish:
-                    request_files.append(filename)
-                elif file_start <= finish_time <= file_finish:
-                    request_files.append(filename)
-
-            request_files = merge_clips(request_files)
+            request_files = [merge_clips(get_clips_by_name(clips, camera_name)) for camera_name in camera_names]
 
             result_dict = {
                 'request_pk': request['id'],
                 'files': request_files,
-                'duration': finish_time - start_time,
             }
 
             redis_client_pickle.lpush(READY_REQUESTED_FILES, pickle.dumps(result_dict))
+
+    def find_clips_by_request(self, request: dict) -> list[str]:
+        """ Find clips, which are suitable to request """
+
+        filenames = os.listdir(Config.MEDIA_PATH)
+
+        request_files = []
+        start_time = request['start_time'].replace(tzinfo=None)
+        finish_time = request['finish_time'].replace(tzinfo=None)
+
+        for filename in filenames:
+
+            # Парсинг имени файла
+            file_start = datetime.strptime(extract_datetime(filename), Config.DATETIME_FORMAT)
+            duration = int(get_duration(filename))
+            if not duration:
+                continue
+            file_finish = file_start + timedelta(seconds=duration)
+
+            # Проверка видео, подходит ли оно под запрос и формирование видео
+            if file_start <= start_time <= file_finish and file_start <= finish_time <= file_finish:
+                request_files.append(filename)
+            elif start_time <= file_start and file_finish <= finish_time:
+                request_files.append(filename)
+            elif file_start <= start_time <= file_finish:
+                request_files.append(filename)
+            elif file_start <= finish_time <= file_finish:
+                request_files.append(filename)
+
+        return request_files
 
     def run(self):
         """
@@ -259,6 +260,7 @@ class HomeServerConnector(threading.Thread):
                 self.check_connection()
                 if self.network_status:
                     self.send_coordinates()
+                    self.check_video_requests()
                     self.create_clips_by_request()
                     self.upload_files()
             except (AttributeError, SSHException, OperationalError) as error:

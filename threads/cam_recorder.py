@@ -79,6 +79,7 @@ class CamRecorder(threading.Thread):
                    '-an',  # Tells FFMPEG not to expect any audio
                    '-c:v', 'mpeg4',
                    '-b:v', '1M',
+                   '-movflags', 'frag_keyframe+empty_moov',  # will cause output to be 100% fragmented
                    f'{os.path.join(self.media_path, filename)}']
 
         with subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
@@ -168,6 +169,7 @@ class ArUcoCamRecorder(CamRecorder):
                    '-an',  # Tells FFMPEG not to expect any audio
                    '-c:v', 'mpeg4',
                    '-b:v', '1M',
+                   '-movflags', 'frag_keyframe+empty_moov',  # will cause output to be 100% fragmented
                    f'{os.path.join(self.media_path, filename)}']
 
         with subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
