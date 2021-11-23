@@ -27,7 +27,6 @@ if __name__ == '__main__':
     media_exporter = ExportMovieToExternalDrive()
     media_exporter.start()
 
-
     check_unfinished_records()  # добавление файлов, которые не записались до конца, в очередь на выгрузку
 
     server_connector = HomeServerConnector(

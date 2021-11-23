@@ -1,7 +1,8 @@
-import requests
 from threading import Thread
 from datetime import timedelta
 from time import sleep
+
+import requests
 
 from config import Config
 from utils.redis_client import redis_client
@@ -11,7 +12,11 @@ from logs.logger import Logger
 
 
 class CarBot(Thread):
-    def __init__(self, bot_token, chat_id, car_id, network_check_interval=timedelta(minutes=1)):
+    def __init__(self,
+                 bot_token: str,
+                 chat_id: int,
+                 car_id: int,
+                 network_check_interval=timedelta(minutes=1)):
         super().__init__()
         self.bot_token = bot_token
         self.chat_id = chat_id
@@ -20,27 +25,41 @@ class CarBot(Thread):
         self.has_files_to_upload = False
         self.has_requested_files_to_upload = False
         self.car_id = car_id
+        self.notified = False
         self.logger = Logger('TelegramBot')
 
-    def send_message(self, text):
+    def send_message(self, text: str) -> None:
+        """
+        Send message using telegram API url
+        :param text: str
+        """
         requests.get(f"https://api.telegram.org/bot{self.bot_token}"
                      f"/sendMessage?chat_id={self.chat_id}&text={text}")
 
-    def check_connection(self):
+    def check_connection(self) -> None:
+        """
+        Check connection to home server
+        Set 'self.network_status' param
+        """
         status = False
         try:
             status = ping_server(Config.STORAGE_SERVER_URL)
-        except Exception as e:
-            self.logger.exception(f"Bot error: {e}")
+        except Exception as error:
+            self.logger.exception(f"Bot error: {error}")
 
         if status:
             if not self.network_status:
                 self.send_message(f'Машина {self.car_id} появилась в сети')
                 self.network_status = True
+                self.notified = False
         else:
             self.network_status = False
 
-    def check_regular_files(self):
+    def check_regular_files(self) -> None:
+        """
+        Check files that should be upload regularly
+        set 'self.has_files_to_upload' param
+        """
         files_to_upload = redis_client.llen(READY_TO_UPLOAD)
 
         if self.has_files_to_upload and not files_to_upload:
@@ -49,7 +68,11 @@ class CarBot(Thread):
         elif files_to_upload:
             self.has_files_to_upload = True
 
-    def check_requested_files(self):
+    def check_requested_files(self) -> None:
+        """
+        Check files that should be upload on request
+        set 'self.has_requested_files_to_upload' param
+        """
         files_to_upload = redis_client.llen(READY_REQUESTED_FILES)
 
         if self.has_requested_files_to_upload and not files_to_upload:
@@ -58,12 +81,18 @@ class CarBot(Thread):
         elif files_to_upload:
             self.has_requested_files_to_upload = True
 
-    def check_errors(self):
+    def check_errors(self) -> None:
+        """
+        Send error messages to telegram chat
+        """
         for _ in range(redis_client.llen(ERROR_MESSAGES)):
             message = redis_client.lpop(ERROR_MESSAGES)
             self.send_message(message)
 
-    def run(self):
+    def run(self) -> None:
+        """
+        Run telegram 'bot' thread
+        """
         self.send_message(f'Машина {self.car_id}. Запуск.')
 
         while True:
@@ -71,10 +100,11 @@ class CarBot(Thread):
                 self.check_connection()
                 if self.network_status:
                     self.check_errors()
-                    self.check_regular_files()
-                    self.check_requested_files()
+                    if not self.notified:
+                        self.check_regular_files()
+                        self.check_requested_files()
 
                 sleep(self.network_check_interval)
 
-            except Exception as e:
-                self.logger.exception(f'Bot. Unexpected error: {e}')
+            except Exception as error:
+                self.logger.exception(f'Bot. Unexpected error: {error}')

@@ -1,22 +1,27 @@
 import os
-import subprocess
 import threading
 import pickle
 from time import sleep
 from datetime import datetime, timedelta
 
 import paramiko
+from paramiko.sftp_client import SFTPClient
 from paramiko.ssh_exception import SSHException
 from psycopg2 import OperationalError
 from utils.redis_client import redis_client, redis_client_pickle
-from utils.utils import get_duration, extract_name, ping_server, extract_datetime
-from config import Config
+from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips
 from utils.db import DBConnect
-from logs.logger import Logger
 from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, COORDINATES, REQUESTS
+from config import Config
+from logs.logger import Logger
 
 
 class HomeServerConnector(threading.Thread):
+    """
+    Class that connect to home_server,
+    upload regular and requested files, logs,
+    send_coordinates (if needed),
+    """
     def __init__(self, url: str, username: str, password: str, destination_path: str):
         super().__init__()
 
@@ -27,18 +32,25 @@ class HomeServerConnector(threading.Thread):
         self.network_status = True
         self.logger = Logger('HomeServerConnector')
 
-    def check_connection(self):
+    def check_connection(self) -> None:
+        """ Set network_status parameter """
         self.network_status = ping_server(Config.STORAGE_SERVER_URL)
 
-    def check_destination_path(self, sftp_client):
+    def check_destination_path(self, sftp_client: SFTPClient) -> None:
+        """
+        Check if remote path exists,
+        create folder if not
+        :param sftp_client:
+        """
         try:
             sftp_client.stat(self.destination_path)
         except FileNotFoundError:
             self.logger.warning('Destination path doesnt exist!')
             sftp_client.mkdir(self.destination_path)
 
-    def upload_regular_file(self, sftp):
-        # получение имени файла из очереди в redis сервере
+    def upload_regular_file(self, sftp: SFTPClient) -> None:
+        """ Upload files that should be upload regularly """
+        # получение имени файла из очереди в redis
         filename = redis_client.lrange(READY_TO_UPLOAD, 0, 0)[0]
         filepath = os.path.join(Config.MEDIA_PATH, filename)
         try:
@@ -61,26 +73,27 @@ class HomeServerConnector(threading.Thread):
 
         except FileNotFoundError:
             redis_client.lpop(READY_TO_UPLOAD)
-        except OSError as e:
-            self.logger.exception(f'Some error occurred, {filename} not uploaded: {e}')
-        except EOFError as e:
-            self.logger.exception(f'SSH connection error: {e}')
+        except OSError as error:
+            self.logger.exception(f'Some error occurred, {filename} not uploaded: {error}')
+        except EOFError as error:
+            self.logger.exception(f'SSH connection error: {error}')
         else:
             # удаление выгруженного файла из памяти и очереди в redis
             os.remove(filepath)
             redis_client.lpop(READY_TO_UPLOAD)
             self.logger.info(f'{filename} - upload complete')
 
-    def upload_requested_files(self, sftp):
-        # получение имени файлов из очереди в redis сервере
+    def upload_requested_files(self, sftp: SFTPClient) -> None:
+        """Upload files that should be upload on request"""
+        # получение имени файлов из очереди в redis
         request = pickle.loads(redis_client_pickle.lrange(READY_REQUESTED_FILES, 0, 0)[0])
         pk = request['request_pk']
         files = request['files']
         duration = request['duration']
+        try:
+            for filename in files:
+                filepath = os.path.join(Config.TEMP_PATH, filename)
 
-        for filename in files:
-            filepath = os.path.join(Config.TEMP_PATH, filename)
-            try:
                 # отправка файла на удаленный сервер
                 self.logger.info(f'{filename} - start upload')
                 sftp.put(filepath, os.path.join(self.destination_path, filename))
@@ -94,27 +107,27 @@ class HomeServerConnector(threading.Thread):
                                     start_time=start_time,
                                     finish_time=finish_time,
                                     pk=pk)
-            except FileNotFoundError:
-                self.logger.warning('Not found file to upload')
-                redis_client_pickle.lpop(READY_REQUESTED_FILES)
-            except OSError as e:
-                self.logger.exception(f'Some error occurred, {filename} not uploaded: {e}')
-            except EOFError as e:
-                self.logger.exception(f'SSH connection error: {e}')
-            else:
-                # удаление выгруженного файла из памяти и очереди в redis
+
                 os.remove(filepath)
                 self.logger.info(f'{filename} - upload complete')
+
+        except FileNotFoundError:
+            self.logger.warning('Not found file to upload')
+            redis_client_pickle.lpop(READY_REQUESTED_FILES)
+        except OSError as error:
+            self.logger.exception(f'Some error occurred, request {pk} files not uploaded: {error}')
+        except EOFError as error:
+            self.logger.exception(f'SSH connection error: {error}')
         else:
+            # удаление выгруженного файла из памяти и очереди в redis
             redis_client_pickle.lpop(READY_REQUESTED_FILES)
 
-        with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
-            # запись данных о видео в удаленную бд
-            status = True if files else False
+            with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+                # запись данных о видео в удаленную бд
+                status = bool(files)
+                conn.set_request_status(pk=pk, status=status)
 
-            conn.set_request_status(pk=pk, status=status)
-
-    def upload_logs(self, sftp):
+    def upload_logs(self, sftp: SFTPClient) -> None:
         remote_path = os.path.join(self.destination_path, '..', 'logs')
         try:
             sftp.chdir(remote_path)
@@ -126,10 +139,10 @@ class HomeServerConnector(threading.Thread):
             out_filename = f'Car{Config.CAR_ID}_logs.log'
             remote_file_path = os.path.join(remote_path, out_filename)
             sftp.put(local_logs_path, remote_file_path)
-        except OSError as e:
-            self.logger.exception(f'Some error occurred, logs not uploaded: {e}')
+        except OSError as error:
+            self.logger.exception(f'Some error occurred, logs not uploaded: {error}')
 
-    def upload_files(self):
+    def upload_files(self) -> None:
         """
         Выгрузка файлов на сервер с помощью SFTP
         Запись данных о файлах в удаленную базу данных
@@ -157,7 +170,7 @@ class HomeServerConnector(threading.Thread):
                     for _ in range(redis_client.llen(READY_REQUESTED_FILES)):
                         self.upload_requested_files(sftp)
 
-    def send_coordinates(self):
+    def send_coordinates(self) -> None:
         """Отправка координат в удаленную базу данных"""
         # подключение к базе данных
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
@@ -168,48 +181,30 @@ class HomeServerConnector(threading.Thread):
                         coordinates = pickle.loads(redis_client_pickle.lrange(COORDINATES, 0, 0)[0])
                         # отправка координат в бд
                         conn.add_coordinates(coordinates)
-                    except Exception as e:
-                        self.logger.exception(f'Some error occurred, coordinates not uploaded: {e}')
+                    except Exception as error:
+                        self.logger.exception(f'Some error occurred, coordinates not uploaded: {error}')
                     else:
                         # удаление координат из очереди redis
                         redis_client_pickle.lpop(COORDINATES)
-                else:
-                    self.logger.info(f'coordinates upload complete')
 
-    def check_video_requests(self):
+                self.logger.info('coordinates upload complete')
+
+    def check_video_requests(self) -> None:
+        """
+        Check record requests from home server
+        push requests to redis queue
+        """
         with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
             # получение запросов на видеозаписи
             requests = conn.get_record_requests()
             for request in requests:
                 redis_client_pickle.lpush(REQUESTS, pickle.dumps(request))
 
-    def merge_clips(self, clips):
-        camera_names = [camera[1] for camera in Config.CAMERAS]
-        result_files = []
-
-        for camera in camera_names:
-            camera_clips = [clip for clip in clips if camera in clip]
-            if camera_clips:
-                camera_clips.sort()
-
-                output_name = f'{camera_clips[0].split(".")[0]}_all.mp4'
-
-                output_path = os.path.join(Config.TEMP_PATH, output_name)
-                first_file = os.path.join(Config.MEDIA_PATH, camera_clips[0])
-
-                other_files = [f'+{os.path.join(Config.MEDIA_PATH, camera_clip)}' for camera_clip in camera_clips[1:]]
-                command = ['mkvmerge',
-                           '-o', output_path,
-                           first_file]
-                command += other_files
-
-                subprocess.call(command)
-
-                result_files.append(output_name)
-
-        return result_files
-
-    def create_clips_by_request(self):
+    def create_clips_by_request(self) -> None:
+        """
+        Create clips, which are suitable for request
+        Push clips names to redis queue
+        """
         # Получение запросов
         self.check_video_requests()
         # Получение списка записанных файлов
@@ -242,7 +237,7 @@ class HomeServerConnector(threading.Thread):
                 elif file_start <= finish_time <= file_finish:
                     request_files.append(filename)
 
-            request_files = self.merge_clips(request_files)
+            request_files = merge_clips(request_files)
 
             result_dict = {
                 'request_pk': request['id'],
@@ -266,8 +261,8 @@ class HomeServerConnector(threading.Thread):
                     self.send_coordinates()
                     self.create_clips_by_request()
                     self.upload_files()
-            except (AttributeError, SSHException, OperationalError) as e:
-                self.logger.info(f"Unable to connect: {e}")
-            except Exception as e:
-                self.logger.exception(f"Unexpected error: {e}")
+            except (AttributeError, SSHException, OperationalError) as error:
+                self.logger.info(f"Unable to connect: {error}")
+            except Exception as error:
+                self.logger.exception(f"Unexpected error: {error}")
             sleep(Config.VIDEO_DURATION.total_seconds())
