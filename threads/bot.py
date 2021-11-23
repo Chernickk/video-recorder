@@ -6,7 +6,7 @@ import requests
 
 from config import Config
 from utils.redis_client import redis_client
-from utils.utils import ping_server
+from utils.utils import ping_server, get_self_ip
 from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, ERROR_MESSAGES
 from logs.logger import Logger
 
@@ -49,7 +49,8 @@ class CarBot(Thread):
 
         if status:
             if not self.network_status:
-                self.send_message(f'Машина {self.car_id} появилась в сети')
+                local_ip = get_self_ip()
+                self.send_message(f'Машина {self.car_id} в сети. Адрес: {local_ip}')
                 self.network_status = True
                 self.notified = False
         else:
@@ -103,6 +104,7 @@ class CarBot(Thread):
                     if not self.notified:
                         self.check_regular_files()
                         self.check_requested_files()
+                        self.notified = True
 
                 sleep(self.network_check_interval)
 

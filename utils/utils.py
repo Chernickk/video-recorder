@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import socket
 
 import cv2
 
@@ -80,3 +81,15 @@ def merge_clips(clips: list[str]) -> list[str]:
             result_files.append(output_name)
 
     return result_files
+
+
+def get_self_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip_address = s.getsockname()[0]
+        s.close()
+
+        return ip_address
+    except OSError:
+        return '???'
