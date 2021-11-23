@@ -131,7 +131,7 @@ config.py
 .idea/
 
 #custom
-/media/
+*.mp4
+*.log
+*.zip
 *.png
-*.aviaruco_test.py
-redis/redis.conf

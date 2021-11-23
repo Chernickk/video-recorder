@@ -66,7 +66,5 @@ if __name__ == '__main__':
         )
         cam_recorder.start()
 
-
     # gps_tracker = GPSEmulator()
     # gps_tracker.start()
-    #

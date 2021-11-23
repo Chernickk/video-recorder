@@ -5,7 +5,7 @@ from threading import Thread
 
 import psutil
 
-from utils.utils import get_duration, merge_clips
+from utils.utils import get_duration, merge_clips, get_clips_by_name
 from config import Config
 from logs.logger import Logger
 
@@ -42,8 +42,17 @@ class ExportMovieToExternalDrive(Thread):
             os.remove(os.path.join(Config.TEMP_PATH, file))
         self.logger.info('Files exported to flash drive!')
 
-    def create_clips_for_export(self):
+    def create_clips_for_export(self) -> list[str]:
         """ Find clips, which contains last 20 minutes and merge them """
+
+        clips = self.find_clips_for_export()
+        camera_names = [cam[1] for cam in Config.CAMERAS] + [cam[1] for cam in Config.ARUCO_CAMERAS]
+        request_files = [merge_clips(get_clips_by_name(clips, camera_name)) for camera_name in camera_names]
+
+        return request_files
+
+    def find_clips_for_export(self) -> list[str]:
+        """ Find clips, which are suitable to request """
         finish_time = datetime.now()
         start_time = finish_time - timedelta(minutes=20)
 
@@ -70,8 +79,6 @@ class ExportMovieToExternalDrive(Thread):
                 request_files.append(filename)
             elif file_start <= finish_time <= file_finish:
                 request_files.append(filename)
-
-        request_files = merge_clips(request_files)
 
         return request_files
 

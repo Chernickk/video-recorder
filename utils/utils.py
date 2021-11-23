@@ -15,8 +15,8 @@ def extract_datetime(filename):
 
 def extract_name(filename):
     """
-    :param filename:
-    :return: camera name: str
+    :param filename: str
+    :return camera name: str
     """
     return filename.split('.')[0].split('_')[-1]
 
@@ -48,40 +48,41 @@ def get_duration(filename, folder=None):
 def get_free_space() -> float:
     total, used, free = shutil.disk_usage("/")
 
-    return free / 2**30
+    return free / 2 ** 30
 
 
-def merge_clips(clips: list[str]) -> list[str]:
+def get_clips_by_name(clips: list[str], name: str):
+    camera_clips = [clip for clip in clips if name in clip]
+    if camera_clips:
+        camera_clips.sort()
+        return camera_clips
+    return None
+
+
+def merge_clips(clips: list[str]) -> str:
     """
-    Merge clips from same camera
+    Merge clips
     :param clips: list
-    :return merged clips: list
+    :return output merged clip: str
     """
-    camera_names = [camera[1] for camera in Config.CAMERAS]
-    result_files = []
 
-    for camera in camera_names:
-        camera_clips = [clip for clip in clips if camera in clip]
-        if camera_clips:
-            camera_clips.sort()
+    output_name = f'{clips[0].split(".")[0]}_all.mp4'
+    output_path = os.path.join(Config.TEMP_PATH, output_name)
 
-            output_name = f'{camera_clips[0].split(".")[0]}_all.mp4'
+    with open('input.txt', 'w') as f:
+        for filename in clips:
+            f.write(f"file '{os.path.join(Config.MEDIA_PATH, filename)}'\n")
 
-            output_path = os.path.join(Config.TEMP_PATH, output_name)
-            first_file = os.path.join(Config.MEDIA_PATH, camera_clips[0])
+    subprocess.call(['ffmpeg',
+                     '-f', 'concat',
+                     '-safe', '0',
+                     '-i', 'input.txt',
+                     '-c', 'copy',
+                     '-y', output_path])
 
-            other_files = [f'+{os.path.join(Config.MEDIA_PATH, camera_clip)}' for camera_clip in camera_clips[1:]]
-            command = ['mkvmerge',
-                       '-o', output_path,
-                       first_file]
-            command += other_files
+    os.remove('input.txt')
 
-            subprocess.call(command)
-
-            result_files.append(output_name)
-
-    return result_files
-
+    return output_name
 
 def get_self_ip():
     try:

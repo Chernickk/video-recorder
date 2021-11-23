@@ -47,7 +47,7 @@ class DBConnect:
         self.session.commit()
 
     def get_record_requests(self):
-        query = self.session.query(self.RecordRequest).filter_by(delivered=False)
+        query = self.session.query(self.RecordRequest).filter_by(delivered=False, car=self.car)
 
         results = [{
             'start_time': request.start_time,
