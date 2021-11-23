@@ -1,4 +1,6 @@
 import os
+import shutil
+import subprocess
 
 import cv2
 
@@ -40,3 +42,41 @@ def get_duration(filename, folder=None):
     duration = int(frame_count / Config.FPS)
 
     return duration
+
+
+def get_free_space() -> float:
+    total, used, free = shutil.disk_usage("/")
+
+    return free / 2**30
+
+
+def merge_clips(clips: list[str]) -> list[str]:
+    """
+    Merge clips from same camera
+    :param clips: list
+    :return merged clips: list
+    """
+    camera_names = [camera[1] for camera in Config.CAMERAS]
+    result_files = []
+
+    for camera in camera_names:
+        camera_clips = [clip for clip in clips if camera in clip]
+        if camera_clips:
+            camera_clips.sort()
+
+            output_name = f'{camera_clips[0].split(".")[0]}_all.mp4'
+
+            output_path = os.path.join(Config.TEMP_PATH, output_name)
+            first_file = os.path.join(Config.MEDIA_PATH, camera_clips[0])
+
+            other_files = [f'+{os.path.join(Config.MEDIA_PATH, camera_clip)}' for camera_clip in camera_clips[1:]]
+            command = ['mkvmerge',
+                       '-o', output_path,
+                       first_file]
+            command += other_files
+
+            subprocess.call(command)
+
+            result_files.append(output_name)
+
+    return result_files

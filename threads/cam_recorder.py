@@ -29,7 +29,7 @@ class CamRecorder(threading.Thread):
         self.media_path = media_path
         self.logger = Logger(self.camera_name)
 
-    def check_capture(self):
+    def check_capture(self) -> bool:
         """ Проверка получения видео из rtsp стрима """
         frame_status, _ = self.capture.read()
         stream_status = self.capture.isOpened()
@@ -38,25 +38,32 @@ class CamRecorder(threading.Thread):
 
         return True
 
-    def initial_check(self):
+    def initial_check(self) -> bool:
         """
         Дополнительная проверка для исключения ложных срабатываний
         :return:
         """
         for _ in range(5):
-            status, frame = self.capture.read()
+            status, _ = self.capture.read()
             if not status:
                 return False
 
         return True
 
-    def create_filename(self):
+    def create_filename(self) -> str:
+        """
+        Создание имени файла
+        :return: str
+        """
         datetime_string = datetime.strftime(datetime.now(), Config.DATETIME_FORMAT)
 
         return f'{datetime_string}_{self.filename}'
 
-    def record_video(self):
-        """ Запись одного видеофайла """
+    def record_video(self) -> str:
+        """
+        Запись одного видеофайла
+        :return: str filename
+        """
         # формирования строки с датой для названия видеофайла
         filename = self.create_filename()
 
@@ -77,7 +84,7 @@ class CamRecorder(threading.Thread):
         with subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL) as process:
 
             # считывание кадров из rtsp стрима
-            for i in range(self.total_frames):
+            for _ in range(self.total_frames):
                 status, frame = self.capture.read()
                 if status:
                     process.stdin.write(frame.tobytes())
@@ -93,18 +100,18 @@ class CamRecorder(threading.Thread):
         Запуск бесконечного цикла записи видео.
         Если rtsp недоступен, повторная попытка начала записи производится через 30 секунд.
         """
-        self.logger.info(f'start recording...')
+        self.logger.info('start recording...')
         while True:
             try:
                 if self.check_capture() and self.initial_check():
                     self.record_video()
 
-            except RTSPError as e:
-                self.logger.warning(e)
+            except RTSPError as error:
+                self.logger.warning(error)
                 sleep(30)
 
-            except Exception as e:
-                self.logger.warning(f'Unexpected recorder error: {e}')
+            except Exception as error:
+                self.logger.warning(f'Unexpected recorder error: {error}')
                 self.capture.release()
                 sleep(30)
                 self.capture = cv2.VideoCapture(self.url)
@@ -118,18 +125,21 @@ class ArUcoCamRecorder(CamRecorder):
         self.aruco_dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
         self.aruco_params = cv2.aruco.DetectorParameters_create()
 
-    def detect_markers(self, frame):
-        _, markers, _ = cv2.aruco.detectMarkers(frame, self.aruco_dictionary, parameters=self.aruco_params)
+    def detect_markers(self, frame) -> bool:
+        """ Поиск маркеров ArUco в изображении """
+        _, markers, _ = cv2.aruco.detectMarkers(frame,
+                                                self.aruco_dictionary,
+                                                parameters=self.aruco_params)
 
         if markers is not None:
             return False
 
         return True
 
-    def initial_check(self):
+    def initial_check(self) -> bool:
         """
         Дополнительная проверка для исключения ложных срабатываний
-        :return:
+        :return: bool
         """
         for _ in range(5):
             status, frame = self.capture.read()
@@ -138,8 +148,11 @@ class ArUcoCamRecorder(CamRecorder):
 
         return True
 
-    def record_video(self):
-        """ Запись одного видеофайла """
+    def record_video(self) -> str:
+        """
+        Запись одного видеофайла
+        :return: str filename
+        """
         # формирования строки с датой для названия видеофайла
         filename = self.create_filename()
 
@@ -178,7 +191,7 @@ class ArUcoCamRecorder(CamRecorder):
         Запуск бесконечного цикла записи видео.
         Если rtsp недоступен, повторная попытка начала записи производится через 30 секунд.
         """
-        self.logger.info(f'start recording...')
+        self.logger.info('start recording...')
         while True:
             try:
                 if self.check_capture() and self.initial_check():
@@ -187,13 +200,13 @@ class ArUcoCamRecorder(CamRecorder):
                         redis_client.rpush(READY_TO_UPLOAD, filename)
                 else:
                     sleep(30)
-            except RTSPError as e:
-                self.logger.warning(e)
+            except RTSPError as error:
+                self.logger.warning(error)
                 sleep(30)
                 self.capture = cv2.VideoCapture(self.url)
 
-            except Exception as e:
-                self.logger.exception(f'Unexpected recorder error: {e}')
+            except Exception as error:
+                self.logger.exception(f'Unexpected recorder error: {error}')
                 self.capture.release()
                 sleep(30)
                 self.capture = cv2.VideoCapture(self.url)
