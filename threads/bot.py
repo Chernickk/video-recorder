@@ -22,7 +22,6 @@ class CarBot(Thread):
         self.chat_id = chat_id
         self.network_check_interval = network_check_interval.total_seconds()
         self.network_status = False
-        self.has_files_to_upload = False
         self.has_requested_files_to_upload = False
         self.car_id = car_id
         self.notified = False
@@ -63,11 +62,8 @@ class CarBot(Thread):
         """
         files_to_upload = redis_client.llen(READY_TO_UPLOAD)
 
-        if self.has_files_to_upload and not files_to_upload:
+        if not files_to_upload:
             self.send_message(f'Машина {self.car_id}. Записи выгружены на сервер')
-            self.has_files_to_upload = False
-        elif files_to_upload:
-            self.has_files_to_upload = True
 
     def check_requested_files(self) -> None:
         """
@@ -101,9 +97,9 @@ class CarBot(Thread):
                 self.check_connection()
                 if self.network_status:
                     self.check_errors()
+                    self.check_requested_files()
                     if not self.notified:
                         self.check_regular_files()
-                        self.check_requested_files()
                         self.notified = True
 
                 sleep(self.network_check_interval)
