@@ -8,6 +8,7 @@ import cv2
 
 from utils.redis_client import redis_client
 from config import Config
+from utils.variables import READY_TO_UPLOAD
 
 
 def extract_datetime(filename):
@@ -30,9 +31,11 @@ def ping_server(host):
 
 def check_unfinished_records():
     files = os.listdir(Config.MEDIA_PATH)
+    finished_records = redis_client.lrange(READY_TO_UPLOAD)
+    camera_name = [cam[1] for cam in Config.ARUCO_CAMERAS]
     for file in files:
-        if 'BodyCam' in file:
-            redis_client.rpush('ready_to_send', file)
+        if extract_name(file) in camera_name and file not in finished_records:
+            redis_client.rpush(READY_TO_UPLOAD, file)
 
 
 def get_duration(filename, folder=None):

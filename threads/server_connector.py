@@ -71,6 +71,7 @@ class HomeServerConnector(threading.Thread):
                                     finish_time=finish_time)
             else:
                 self.logger.warning(f'Corrupt file {filename}')
+                raise FileNotFoundError
 
         except FileNotFoundError:
             redis_client.lpop(READY_TO_UPLOAD)
