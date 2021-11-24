@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import socket
+from typing import List
 
 import cv2
 
@@ -51,7 +52,7 @@ def get_free_space() -> float:
     return free / 2 ** 30
 
 
-def get_clips_by_name(clips: list[str], name: str):
+def get_clips_by_name(clips: List[str], name: str):
     camera_clips = [clip for clip in clips if name in clip]
     if camera_clips:
         camera_clips.sort()
@@ -59,7 +60,7 @@ def get_clips_by_name(clips: list[str], name: str):
     return None
 
 
-def merge_clips(clips: list[str]) -> str:
+def merge_clips(clips: List[str]) -> str:
     """
     Merge clips
     :param clips: list
@@ -83,6 +84,7 @@ def merge_clips(clips: list[str]) -> str:
     os.remove('input.txt')
 
     return output_name
+
 
 def get_self_ip():
     try:

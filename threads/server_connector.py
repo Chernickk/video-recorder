@@ -3,6 +3,7 @@ import threading
 import pickle
 from time import sleep
 from datetime import datetime, timedelta
+from typing import List, Dict
 
 import paramiko
 from paramiko.sftp_client import SFTPClient
@@ -218,7 +219,7 @@ class HomeServerConnector(threading.Thread):
 
             redis_client_pickle.lpush(READY_REQUESTED_FILES, pickle.dumps(result_dict))
 
-    def find_clips_by_request(self, request: dict) -> list[str]:
+    def find_clips_by_request(self, request: Dict) -> List[str]:
         """ Find clips, which are suitable to request """
 
         filenames = os.listdir(Config.MEDIA_PATH)

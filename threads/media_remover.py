@@ -2,6 +2,7 @@ import os
 from threading import Thread
 from time import sleep
 from datetime import timedelta
+from typing import List
 
 from logs.logger import Logger
 from config import Config
@@ -17,7 +18,7 @@ class MediaRemover(Thread):
         self.media_path = media_path
         self.logger = Logger('MediaRemover')
 
-    def get_files_to_delete(self) -> list[str]:
+    def get_files_to_delete(self) -> List[str]:
         """
         :return: list of files to delete
         """
@@ -25,7 +26,7 @@ class MediaRemover(Thread):
         files.sort()
         return files[:self.num_files_to_delete]
 
-    def delete_files(self, files: list[str]) -> None:
+    def delete_files(self, files: List[str]) -> None:
         """
         Remove files from given list
         :param files: list

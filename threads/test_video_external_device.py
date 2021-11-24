@@ -2,6 +2,7 @@ import os
 from datetime import timedelta, datetime
 from time import sleep
 from threading import Thread
+from typing import List
 
 import psutil
 
@@ -24,10 +25,12 @@ class ExportMovieToExternalDrive(Thread):
         Set connected device to 'self.new_device'
         """
         partitions = psutil.disk_partitions()
-        new_device = set(partitions) - set(self.disk_partitions)
-        if new_device:
-            self.new_device = new_device.pop()
-            self.upload_latest_files_to_external_device()
+        new_devices = set(partitions) - set(self.disk_partitions)
+        if new_devices:
+            new_device = new_devices.pop()
+            if 'sda' in new_device.device:
+                self.new_device = new_device
+                self.upload_latest_files_to_external_device()
 
         self.disk_partitions = partitions
 
@@ -42,7 +45,7 @@ class ExportMovieToExternalDrive(Thread):
             os.remove(os.path.join(Config.TEMP_PATH, file))
         self.logger.info('Files exported to flash drive!')
 
-    def create_clips_for_export(self) -> list[str]:
+    def create_clips_for_export(self) -> List[str]:
         """ Find clips, which contains last 20 minutes and merge them """
 
         clips = self.find_clips_for_export()
@@ -51,7 +54,7 @@ class ExportMovieToExternalDrive(Thread):
 
         return request_files
 
-    def find_clips_for_export(self) -> list[str]:
+    def find_clips_for_export(self) -> List[str]:
         """ Find clips, which are suitable to request """
         finish_time = datetime.now()
         start_time = finish_time - timedelta(minutes=20)
