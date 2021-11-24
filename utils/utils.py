@@ -31,7 +31,7 @@ def ping_server(host):
 
 def check_unfinished_records():
     files = os.listdir(Config.MEDIA_PATH)
-    finished_records = redis_client.lrange(READY_TO_UPLOAD)
+    finished_records = redis_client.lrange(READY_TO_UPLOAD, 0, -1)
     camera_name = [cam[1] for cam in Config.ARUCO_CAMERAS]
     for file in files:
         if extract_name(file) in camera_name and file not in finished_records:
