@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 
 
 class DBConnect:
-    def __init__(self, db_url, car_id):
+    def __init__(self, db_url, license_table):
         """prepare and automap db"""
 
         Base = automap_base()
@@ -15,14 +15,14 @@ class DBConnect:
         Base.prepare(self._engine, reflect=True)
 
         self._Car = Base.classes.car
-        self.car_id = car_id
+        self.license_table = license_table
         self.Record = Base.classes.record
-        self.RecordRequest = Base.classes.record_request
+        self.RecordRequest = Base.classes.request
         self.GPS = Base.classes.gps
 
     def __enter__(self):
         self.session = Session(self._engine)
-        self.car = self.session.query(self._Car).filter_by(id=self.car_id).first()
+        self.car = self.session.query(self._Car).filter_by(license_table=self.license_table).first()
 
         return self
 

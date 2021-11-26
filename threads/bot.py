@@ -15,7 +15,7 @@ class CarBot(Thread):
     def __init__(self,
                  bot_token: str,
                  chat_id: int,
-                 car_id: int,
+                 car_name: str,
                  network_check_interval=timedelta(minutes=1)):
         super().__init__()
         self.bot_token = bot_token
@@ -24,7 +24,7 @@ class CarBot(Thread):
         self.network_status = False
         self.has_files_to_upload = False
         self.has_requested_files_to_upload = False
-        self.car_id = car_id
+        self.car_name = car_name
         self.notified = False
         self.logger = Logger('TelegramBot')
 
@@ -50,7 +50,7 @@ class CarBot(Thread):
         if status:
             if not self.network_status:
                 local_ip = get_self_ip()
-                self.send_message(f'Машина {self.car_id} в сети. Адрес: {local_ip}')
+                self.send_message(f'Машина {self.car_name} в сети. Адрес: {local_ip}')
                 self.network_status = True
         else:
             self.network_status = False
@@ -65,7 +65,7 @@ class CarBot(Thread):
             files_to_upload = redis_client.llen(READY_TO_UPLOAD)
 
             if self.has_files_to_upload and not files_to_upload:
-                self.send_message(f'Машина {self.car_id}. Записи выгружены на сервер')
+                self.send_message(f'Машина {self.car_name}. Записи выгружены на сервер')
                 self.has_files_to_upload = False
                 self.notified = True
             elif files_to_upload:
@@ -79,7 +79,7 @@ class CarBot(Thread):
         files_to_upload = redis_client.llen(READY_REQUESTED_FILES)
 
         if self.has_requested_files_to_upload and not files_to_upload:
-            self.send_message(f'Машина {self.car_id}. Запрошенные записи выгружены на сервер')
+            self.send_message(f'Машина {self.car_name}. Запрошенные записи выгружены на сервер')
             self.has_requested_files_to_upload = False
         elif files_to_upload:
             self.has_requested_files_to_upload = True
@@ -96,7 +96,7 @@ class CarBot(Thread):
         """
         Run telegram 'bot' thread
         """
-        self.send_message(f'Машина {self.car_id}. Запуск.')
+        self.send_message(f'Машина {self.car_name}. Запуск.')
 
         while True:
             try:

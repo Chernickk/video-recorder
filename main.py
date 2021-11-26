@@ -37,7 +37,7 @@ if __name__ == '__main__':
     )
     server_connector.start()
 
-    car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CHAT_ID, Config.CAR_ID)
+    car_bot = CarBot(Config.TELEGRAM_BOT_TOKEN, Config.CHAT_ID, Config.CAR_LICENSE_TABLE)
     car_bot.start()
 
     media_remover = MediaRemover(check_interval=(Config.VIDEO_DURATION.total_seconds() // 2),

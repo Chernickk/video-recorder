@@ -61,9 +61,9 @@ class HomeServerConnector(threading.Thread):
             duration = get_duration(filename)
             if duration:
                 finish_time = start_time + timedelta(seconds=int(duration))
-                sftp.put(filepath, os.path.join(self.destination_path, filename))
+                sftp.put(filepath, os.path.join(Config.DESTINATION_TEMP, filename))
                 # подключение к базе данных
-                with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+                with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
                     # запись данных о видео в удаленную бд
                     conn.add_record(filename=filename,
                                     start_time=start_time,
@@ -95,11 +95,11 @@ class HomeServerConnector(threading.Thread):
 
                 # отправка файла на удаленный сервер
                 self.logger.info(f'{filename} - start upload')
-                sftp.put(filepath, os.path.join(self.destination_path, filename))
+                sftp.put(filepath, os.path.join(Config.DESTINATION_REQUEST, filename))
                 start_time = datetime.strptime(extract_datetime(filename), Config.DATETIME_FORMAT)
 
                 # подключение к базе данных
-                with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+                with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
                     # запись данных о видео в удаленную бд
                     conn.add_record(filename=filename,
                                     start_time=start_time,
@@ -120,22 +120,16 @@ class HomeServerConnector(threading.Thread):
             # удаление выгруженного файла из памяти и очереди в redis
             redis_client_pickle.lpop(READY_REQUESTED_FILES)
 
-            with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+            with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
                 # запись данных о видео в удаленную бд
                 status = bool(files)
                 conn.set_request_status(pk=pk, status=status)
 
     def upload_logs(self, sftp: SFTPClient) -> None:
-        remote_path = os.path.join(self.destination_path, '..', 'logs')
-        try:
-            sftp.chdir(remote_path)
-        except IOError:
-            sftp.mkdir(remote_path)
-
         try:
             local_logs_path = os.path.join(Config.PATH, 'logs', 'data', 'logs.log')
-            out_filename = f'Car{Config.CAR_ID}_logs.log'
-            remote_file_path = os.path.join(remote_path, out_filename)
+            out_filename = f'Car{Config.CAR_LICENSE_TABLE}_logs.log'
+            remote_file_path = os.path.join(Config.DESTINATION_LOGS, out_filename)
             sftp.put(local_logs_path, remote_file_path)
         except OSError as error:
             self.logger.exception(f'Some error occurred, logs not uploaded: {error}')
@@ -160,6 +154,7 @@ class HomeServerConnector(threading.Thread):
                 # создание sftp поверх ssh
                 with client.open_sftp() as sftp:
                     sftp.get_channel().settimeout(30)
+                    sftp.chdir(Config.DESTINATION_DISK)
 
                     self.check_destination_path(sftp)
                     self.upload_logs(sftp)
@@ -171,7 +166,7 @@ class HomeServerConnector(threading.Thread):
     def send_coordinates(self) -> None:
         """Отправка координат в удаленную базу данных"""
         # подключение к базе данных
-        with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+        with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
             if redis_client.llen(COORDINATES):
                 for _ in range(redis_client.llen(COORDINATES)):
                     try:
@@ -192,7 +187,7 @@ class HomeServerConnector(threading.Thread):
         Check record requests from home server
         push requests to redis queue
         """
-        with DBConnect(Config.DATABASE_URL, Config.CAR_ID) as conn:
+        with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
             # получение запросов на видеозаписи
             requests = conn.get_record_requests()
             for request in requests:
