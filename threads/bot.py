@@ -52,22 +52,24 @@ class CarBot(Thread):
                 local_ip = get_self_ip()
                 self.send_message(f'Машина {self.car_id} в сети. Адрес: {local_ip}')
                 self.network_status = True
-                self.notified = False
         else:
             self.network_status = False
+            self.notified = False
 
     def check_regular_files(self) -> None:
         """
         Check files that should be upload regularly
         set 'self.has_files_to_upload' param
         """
-        files_to_upload = redis_client.llen(READY_TO_UPLOAD)
+        if not self.notified:
+            files_to_upload = redis_client.llen(READY_TO_UPLOAD)
 
-        if self.has_files_to_upload and not files_to_upload:
-            self.send_message(f'Машина {self.car_id}. Записи выгружены на сервер')
-            self.has_files_to_upload = False
-        elif files_to_upload:
-            self.has_files_to_upload = True
+            if self.has_files_to_upload and not files_to_upload:
+                self.send_message(f'Машина {self.car_id}. Записи выгружены на сервер')
+                self.has_files_to_upload = False
+                self.notified = True
+            elif files_to_upload:
+                self.has_files_to_upload = True
 
     def check_requested_files(self) -> None:
         """
@@ -101,10 +103,8 @@ class CarBot(Thread):
                 self.check_connection()
                 if self.network_status:
                     self.check_errors()
-                    if not self.notified:
-                        self.check_regular_files()
-                        self.check_requested_files()
-                        self.notified = True
+                    self.check_regular_files()
+                    self.check_requested_files()
 
                 sleep(self.network_check_interval)
 
