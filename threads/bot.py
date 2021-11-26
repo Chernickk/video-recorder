@@ -22,7 +22,6 @@ class CarBot(Thread):
         self.chat_id = chat_id
         self.network_check_interval = network_check_interval.total_seconds()
         self.network_status = False
-        self.has_files_to_upload = False
         self.has_requested_files_to_upload = False
         self.car_name = car_name
         self.notified = False
@@ -70,6 +69,8 @@ class CarBot(Thread):
                 self.notified = True
             elif files_to_upload:
                 self.has_files_to_upload = True
+            if not files_to_upload:
+                self.send_message(f'Машина {self.car_name}. Записи выгружены на сервер')
 
     def check_requested_files(self) -> None:
         """
@@ -105,8 +106,10 @@ class CarBot(Thread):
                     self.check_errors()
                     self.check_regular_files()
                     self.check_requested_files()
-
-                sleep(self.network_check_interval)
+                    if not self.notified:
+                        self.notified = True
 
             except Exception as error:
                 self.logger.exception(f'Bot. Unexpected error: {error}')
+            finally:
+                sleep(self.network_check_interval)

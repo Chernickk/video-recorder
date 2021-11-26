@@ -4,6 +4,7 @@ import random
 import pickle
 from time import sleep
 from datetime import datetime
+from typing import Dict
 
 from utils.redis_client import redis_client_pickle
 from utils.variables import COORDINATES
@@ -16,7 +17,7 @@ class GPSEmulator(threading.Thread):
         super().__init__()
         self.logger = Logger('GPSTracker')
 
-    def get_coordinates(self) -> dict:
+    def get_coordinates(self) -> Dict:
         """
         Получение координат (сейчас рандомно), сделано для тестов
         :return: dict
