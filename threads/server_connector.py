@@ -204,9 +204,13 @@ class HomeServerConnector(threading.Thread):
             # Получение запроса
             request = pickle.loads(redis_client_pickle.lpop(REQUESTS))
             clips = self.find_clips_by_request(request)
-            camera_names = [cam[1] for cam in Config.CAMERAS] + [cam[1] for cam in Config.ARUCO_CAMERAS]
+            camera_names = [cam[1] for cam in Config.CAMERAS]
 
-            request_files = [merge_clips(get_clips_by_name(clips, camera_name)) for camera_name in camera_names]
+            request_files = []
+            for camera_name in camera_names:
+                camera_clips = get_clips_by_name(clips, camera_name)
+                if camera_clips:
+                    request_files.append(merge_clips(camera_clips))
 
             result_dict = {
                 'request_pk': request['id'],
