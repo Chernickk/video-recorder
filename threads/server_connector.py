@@ -9,6 +9,7 @@ import paramiko
 from paramiko.sftp_client import SFTPClient
 from paramiko.ssh_exception import SSHException
 from psycopg2 import OperationalError
+from psycopg2 import IntegrityError
 from utils.redis_client import redis_client, redis_client_pickle
 from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips, get_clips_by_name
 from utils.db import DBConnect
@@ -75,10 +76,8 @@ class HomeServerConnector(threading.Thread):
 
         except FileNotFoundError:
             redis_client.lpop(READY_TO_UPLOAD)
-        except OSError as error:
+        except (OSError, EOFError) as error:
             self.logger.exception(f'Some error occurred, {filename} not uploaded: {error}')
-        except EOFError as error:
-            self.logger.exception(f'SSH connection error: {error}')
         else:
             # удаление выгруженного файла из памяти и очереди в redis
             os.remove(filepath)
@@ -114,10 +113,11 @@ class HomeServerConnector(threading.Thread):
         except FileNotFoundError:
             self.logger.warning('Not found file to upload')
             redis_client_pickle.lpop(READY_REQUESTED_FILES)
-        except OSError as error:
+        except IntegrityError as error:
+            self.logger.info(f'error {error}')
+            redis_client_pickle.lpop(READY_REQUESTED_FILES)
+        except (OSError, EOFError) as error:
             self.logger.exception(f'Some error occurred, request {pk} files not uploaded: {error}')
-        except EOFError as error:
-            self.logger.exception(f'SSH connection error: {error}')
         else:
             # удаление выгруженного файла из памяти и очереди в redis
             redis_client_pickle.lpop(READY_REQUESTED_FILES)
