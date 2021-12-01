@@ -51,7 +51,7 @@ class CarBot(Thread):
         if status:
             if not self.network_status:
                 local_ip = get_self_ip()
-                self.send_message(f'Машина {self.car_name} в сети. Адрес: {local_ip}')
+                self.send_message(f'Машина в сети. Адрес: {local_ip}')
                 self.network_status = True
         else:
             self.network_status = False
