@@ -22,6 +22,7 @@ class CarBot(Thread):
         self.chat_id = chat_id
         self.network_check_interval = network_check_interval.total_seconds()
         self.network_status = False
+        self.has_files_to_upload = False
         self.has_requested_files_to_upload = False
         self.car_name = car_name
         self.notified = False
@@ -32,8 +33,9 @@ class CarBot(Thread):
         Send message using telegram API url
         :param text: str
         """
+        sleep(5)
         requests.get(f"https://api.telegram.org/bot{self.bot_token}"
-                     f"/sendMessage?chat_id={self.chat_id}&text={text}")
+                     f"/sendMessage?chat_id={self.chat_id}&text={Config.CAR_LICENSE_TABLE}:{text}")
 
     def check_connection(self) -> None:
         """
@@ -69,8 +71,6 @@ class CarBot(Thread):
                 self.notified = True
             elif files_to_upload:
                 self.has_files_to_upload = True
-            if not files_to_upload:
-                self.send_message(f'Машина {self.car_name}. Записи выгружены на сервер')
 
     def check_requested_files(self) -> None:
         """
@@ -97,7 +97,7 @@ class CarBot(Thread):
         """
         Run telegram 'bot' thread
         """
-        self.send_message(f'Машина {self.car_name}. Запуск.')
+        self.send_message(f'Запуск.')
 
         while True:
             try:
