@@ -22,6 +22,7 @@ class CarBot(Thread):
         self.chat_id = chat_id
         self.network_check_interval = network_check_interval.total_seconds()
         self.network_status = False
+        self.has_files_to_upload = False
         self.has_requested_files_to_upload = False
         self.car_name = car_name
         self.notified = False
@@ -33,7 +34,7 @@ class CarBot(Thread):
         :param text: str
         """
         requests.get(f"https://api.telegram.org/bot{self.bot_token}"
-                     f"/sendMessage?chat_id={self.chat_id}&text={text}")
+                     f"/sendMessage?chat_id={self.chat_id}&text={text}", timeout=5)
 
     def check_connection(self) -> None:
         """
@@ -57,7 +58,7 @@ class CarBot(Thread):
 
     def check_regular_files(self) -> None:
         """
-        Check files that should be upload regularly
+        Check files that should upload regularly
         set 'self.has_files_to_upload' param
         """
         if not self.notified:
