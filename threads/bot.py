@@ -66,7 +66,7 @@ class CarBot(Thread):
             files_to_upload = redis_client.llen(READY_TO_UPLOAD)
 
             if self.has_files_to_upload and not files_to_upload:
-                self.send_message(f'Машина {self.car_name}. Записи выгружены на сервер')
+                self.send_message(f' Записи выгружены на сервер')
                 self.has_files_to_upload = False
                 self.notified = True
             elif files_to_upload:
@@ -80,7 +80,7 @@ class CarBot(Thread):
         files_to_upload = redis_client.llen(READY_REQUESTED_FILES)
 
         if self.has_requested_files_to_upload and not files_to_upload:
-            self.send_message(f'Машина {self.car_name}. Запрошенные записи выгружены на сервер')
+            self.send_message(f' Запрошенные записи выгружены на сервер')
             self.has_requested_files_to_upload = False
         elif files_to_upload:
             self.has_requested_files_to_upload = True
