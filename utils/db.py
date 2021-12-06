@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
@@ -65,4 +67,10 @@ class DBConnect:
         request = self.session.query(self.RecordRequest).filter_by(id=pk).first()
 
         request.record_status = status
+        self.session.commit()
+
+    def set_last_seen(self, ip_address):
+        self.car.last_seen = datetime.datetime.now()
+        self.car.ip_address = ip_address
+
         self.session.commit()

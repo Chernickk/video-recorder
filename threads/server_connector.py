@@ -11,7 +11,8 @@ from paramiko.ssh_exception import SSHException
 from psycopg2 import OperationalError
 from psycopg2 import IntegrityError
 from utils.redis_client import redis_client, redis_client_pickle
-from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips, get_clips_by_name
+from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips, get_clips_by_name, \
+    get_self_ip
 from utils.db import DBConnect
 from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, COORDINATES, REQUESTS
 from config import Config
@@ -37,6 +38,12 @@ class HomeServerConnector(threading.Thread):
     def check_connection(self) -> None:
         """ Set network_status parameter """
         self.network_status = ping_server(Config.STORAGE_SERVER_URL)
+
+        if self.network_status:
+            ip_address = get_self_ip()
+
+            with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
+                conn.set_last_seen(ip_address)
 
     def check_destination_path(self, sftp_client: SFTPClient) -> None:
         """

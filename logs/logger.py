@@ -1,3 +1,4 @@
+import datetime
 import os
 
 from loguru import logger
@@ -27,7 +28,8 @@ class Logger:
 
     def warning(self, message):
         self.logger.warning(f'{self.name} {message}')
-        redis_client.lpush('error_messages', f'{self.name} {message}')
+        redis_client.lpush('error_messages',
+                           f'{datetime.datetime.now().strftime(Config.DATETIME_FORMAT)} {self.name} {message}')
 
     def info(self, message):
         self.logger.info(f'{self.name} {message}')
