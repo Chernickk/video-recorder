@@ -44,7 +44,7 @@ class MediaRemover(Thread):
                 free_space = get_free_space()
                 if free_space <= 10:
 
-                    self.logger.warning(f'Low disk space: {free_space:.2f} Gb! Removing older files...')
+                    self.logger.info(f'Low disk space: {free_space:.2f} Gb! Removing older files...')
                     files_to_delete = self.get_files_to_delete()
                     self.delete_files(files_to_delete)
             except Exception as error:
