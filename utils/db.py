@@ -74,3 +74,6 @@ class DBConnect:
         self.car.ip_address = ip_address
 
         self.session.commit()
+
+    def get_loading_status(self):
+        return self.car.loading
