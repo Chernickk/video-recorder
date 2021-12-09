@@ -45,7 +45,7 @@ class HomeServerConnector(threading.Thread):
                 loading_status = conn.get_loading_status()
                 conn.set_last_seen(ip_address)
 
-            redis_client.set(LOADING_STATUS, loading_status)
+            redis_client.set(LOADING_STATUS, int(loading_status))
 
     def check_connection(self) -> None:
         """ Set network_status parameter """
@@ -278,7 +278,7 @@ class HomeServerConnector(threading.Thread):
                 self.check_connection()
                 self.set_self_status()
                 if self.network_status:
-                    self.check_updates()
+                    # self.check_updates()
                     self.send_coordinates()
                     self.check_video_requests()
                     self.create_clips_by_request()
