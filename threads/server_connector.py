@@ -34,7 +34,7 @@ class HomeServerConnector(threading.Thread):
         self.username = username
         self.password = password
         self.destination_path = destination_path
-        self.network_status = True
+        self.network_status = 1
         self.logger = Logger('HomeServerConnector')
 
     def set_self_status(self):
@@ -50,7 +50,7 @@ class HomeServerConnector(threading.Thread):
     def check_connection(self) -> None:
         """ Set network_status parameter """
         self.network_status = ping_server(Config.STORAGE_SERVER_URL)
-        redis_client.set(NETWORK_CONNECTION, self.network_status)
+        redis_client.set(NETWORK_CONNECTION, int(self.network_status))
 
     def check_destination_path(self, sftp_client: SFTPClient) -> None:
         """
