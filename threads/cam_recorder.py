@@ -8,7 +8,7 @@ import cv2
 
 from utils.redis_client import redis_client
 from utils.error import RTSPError
-from utils.variables import READY_TO_UPLOAD
+from utils.variables import READY_TO_UPLOAD, NETWORK_CONNECTION, LOADING_STATUS
 from logs.logger import Logger
 from config import Config
 
@@ -178,9 +178,11 @@ class ArUcoCamRecorder(CamRecorder):
                 record_status, frame = self.capture.read()
                 if record_status:
                     # проверка один раз в заданное количество секунд
+                    if redis_client.get(NETWORK_CONNECTION):
+                        if not redis_client.get(LOADING_STATUS):
+                            break
                     if i and not i % (self.fps * self.check_interval_in_seconds):
-                        status = self.detect_markers(frame)
-                        if not status:
+                        if not self.detect_markers(frame):
                             break
                     process.stdin.write(frame.tobytes())
 

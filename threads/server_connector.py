@@ -11,10 +11,12 @@ from paramiko.ssh_exception import SSHException
 from psycopg2 import OperationalError
 from psycopg2 import IntegrityError
 from utils.redis_client import redis_client, redis_client_pickle
-from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips, get_clips_by_name, \
+from utils.update_checker import check_updates
+from utils.utils import get_duration, ping_server, extract_datetime, merge_clips, get_clips_by_name, \
     get_self_ip
 from utils.db import DBConnect
-from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, COORDINATES, REQUESTS
+from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, COORDINATES, REQUESTS, LOADING_STATUS, \
+    NETWORK_CONNECTION
 from config import Config
 from logs.logger import Logger
 
@@ -35,15 +37,20 @@ class HomeServerConnector(threading.Thread):
         self.network_status = True
         self.logger = Logger('HomeServerConnector')
 
-    def check_connection(self) -> None:
-        """ Set network_status parameter """
-        self.network_status = ping_server(Config.STORAGE_SERVER_URL)
-
+    def set_self_status(self):
         if self.network_status:
             ip_address = get_self_ip()
 
             with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
+                loading_status = conn.get_loading_status()
                 conn.set_last_seen(ip_address)
+
+            redis_client.set(LOADING_STATUS, loading_status)
+
+    def check_connection(self) -> None:
+        """ Set network_status parameter """
+        self.network_status = ping_server(Config.STORAGE_SERVER_URL)
+        redis_client.set(NETWORK_CONNECTION, self.network_status)
 
     def check_destination_path(self, sftp_client: SFTPClient) -> None:
         """
@@ -256,6 +263,9 @@ class HomeServerConnector(threading.Thread):
 
         return request_files
 
+    def check_updates(self):
+        check_updates()
+
     def run(self):
         """
         Запуск бесконечного цикла.
@@ -266,7 +276,9 @@ class HomeServerConnector(threading.Thread):
         while True:
             try:
                 self.check_connection()
+                self.set_self_status()
                 if self.network_status:
+                    self.check_updates()
                     self.send_coordinates()
                     self.check_video_requests()
                     self.create_clips_by_request()

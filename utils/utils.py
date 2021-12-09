@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import socket
 from typing import List
+from functools import wraps
 
 import cv2
 
@@ -99,3 +100,16 @@ def get_self_ip():
         return ip_address
     except OSError:
         return '???'
+
+
+def function_call_log(logger):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            logger.info(f'before {func.__name__}')
+            result = func(*args, **kwargs)
+            logger.info(f'after {func.__name__}')
+            return result
+        return wrapper
+    return decorator
+
