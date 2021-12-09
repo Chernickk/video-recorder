@@ -6,7 +6,7 @@ import requests
 
 from config import Config
 from utils.redis_client import redis_client
-from utils.utils import ping_server, get_self_ip
+from utils.utils import ping_server, get_self_ip, function_call_log
 from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, ERROR_MESSAGES
 from logs.logger import Logger
 
@@ -28,6 +28,7 @@ class CarBot(Thread):
         self.notified = False
         self.logger = Logger('TelegramBot')
 
+    @function_call_log(Logger('BOTERROR'))
     def send_message(self, text: str) -> None:
         """
         Send message using telegram API url
@@ -37,6 +38,7 @@ class CarBot(Thread):
         requests.get(f"https://api.telegram.org/bot{self.bot_token}"
                      f"/sendMessage?chat_id={self.chat_id}&text={Config.CAR_LICENSE_TABLE}:{text}", timeout=5)
 
+    @function_call_log(Logger('BOTERROR'))
     def check_connection(self) -> None:
         """
         Check connection to home server
@@ -57,6 +59,7 @@ class CarBot(Thread):
             self.network_status = False
             self.notified = False
 
+    @function_call_log(Logger('BOTERROR'))
     def check_regular_files(self) -> None:
         """
         Check files that should upload regularly
@@ -72,6 +75,7 @@ class CarBot(Thread):
             elif files_to_upload:
                 self.has_files_to_upload = True
 
+    @function_call_log(Logger('BOTERROR'))
     def check_requested_files(self) -> None:
         """
         Check files that should be upload on request
@@ -85,6 +89,7 @@ class CarBot(Thread):
         elif files_to_upload:
             self.has_requested_files_to_upload = True
 
+    @function_call_log(Logger('BOTERROR'))
     def check_errors(self) -> None:
         """
         Send error messages to telegram chat

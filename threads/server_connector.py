@@ -11,7 +11,8 @@ from paramiko.ssh_exception import SSHException
 from psycopg2 import OperationalError
 from psycopg2 import IntegrityError
 from utils.redis_client import redis_client, redis_client_pickle
-from utils.utils import get_duration, extract_name, ping_server, extract_datetime, merge_clips, get_clips_by_name, \
+from utils.update_checker import check_updates
+from utils.utils import get_duration, ping_server, extract_datetime, merge_clips, get_clips_by_name, \
     get_self_ip
 from utils.db import DBConnect
 from utils.variables import READY_TO_UPLOAD, READY_REQUESTED_FILES, COORDINATES, REQUESTS, LOADING_STATUS, \
@@ -262,6 +263,9 @@ class HomeServerConnector(threading.Thread):
 
         return request_files
 
+    def check_updates(self):
+        check_updates()
+
     def run(self):
         """
         Запуск бесконечного цикла.
@@ -274,6 +278,7 @@ class HomeServerConnector(threading.Thread):
                 self.check_connection()
                 self.set_self_status()
                 if self.network_status:
+                    self.check_updates()
                     self.send_coordinates()
                     self.check_video_requests()
                     self.create_clips_by_request()
