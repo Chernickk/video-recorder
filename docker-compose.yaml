@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  registrator:
+    build: .
+    command: bash -c "python main.py"
+    volumes:
+      -  ./media:/media
+    restart: always
