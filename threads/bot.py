@@ -69,7 +69,7 @@ class CarBot(Thread):
         set 'self.has_files_to_upload' param
         """
         if not self.notified:
-            files_to_upload = redis_client.llen(READY_TO_UPLOAD)
+            files_to_upload = redis_client.len(READY_TO_UPLOAD)
 
             if self.has_files_to_upload and not files_to_upload:
                 self.send_message(f' Записи выгружены на сервер')
@@ -84,7 +84,7 @@ class CarBot(Thread):
         Check files that should be upload on request
         set 'self.has_requested_files_to_upload' param
         """
-        files_to_upload = redis_client.llen(READY_REQUESTED_FILES)
+        files_to_upload = redis_client.len(READY_REQUESTED_FILES)
 
         if self.has_requested_files_to_upload and not files_to_upload:
             self.send_message(f' Запрошенные записи выгружены на сервер')
@@ -97,7 +97,7 @@ class CarBot(Thread):
         """
         Send error messages to telegram chat
         """
-        for _ in range(redis_client.llen(ERROR_MESSAGES)):
+        for _ in range(redis_client.len(ERROR_MESSAGES)):
             message = redis_client.lpop(ERROR_MESSAGES)
             self.send_message(message)
 

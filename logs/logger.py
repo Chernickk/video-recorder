@@ -24,12 +24,12 @@ class Logger:
 
     def exception(self, exception):
         self.logger.exception(f'{self.name} Error: {exception}')
-        redis_client.lpush('error_messages', f'{self.name} Error: {exception}')
+        redis_client.lpush('error_messages', f'   {datetime.datetime.now().strftime("%H:%M:%S")} \n{self.name} \n{exception}')
 
     def warning(self, message):
         self.logger.warning(f'{self.name} {message}')
         redis_client.lpush('error_messages',
-                           f'{datetime.datetime.now().strftime("%H:%M:%S")} {self.name} {message}')
+                           f'   {datetime.datetime.now().strftime("%H:%M:%S")} \n{self.name} \n{message}')
 
     def info(self, message):
         self.logger.info(f'{self.name} {message}')

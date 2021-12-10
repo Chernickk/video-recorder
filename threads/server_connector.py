@@ -45,12 +45,12 @@ class HomeServerConnector(threading.Thread):
                 loading_status = conn.get_loading_status()
                 conn.set_last_seen(ip_address)
 
-            redis_client.set(LOADING_STATUS, int(loading_status))
+            redis_client.set(LOADING_STATUS, loading_status)
 
     def check_connection(self) -> None:
         """ Set network_status parameter """
         self.network_status = ping_server(Config.STORAGE_SERVER_URL)
-        redis_client.set(NETWORK_CONNECTION, int(self.network_status))
+        redis_client.set(NETWORK_CONNECTION, self.network_status)
 
     def check_destination_path(self, sftp_client: SFTPClient) -> None:
         """
@@ -67,7 +67,7 @@ class HomeServerConnector(threading.Thread):
     def upload_regular_file(self, sftp: SFTPClient) -> None:
         """ Upload files that should be upload regularly """
         # получение имени файла из очереди в redis
-        filename = redis_client.lrange(READY_TO_UPLOAD, 0, 0)[0]
+        filename = redis_client.get_full_list(READY_TO_UPLOAD)[0]
         filepath = os.path.join(Config.MEDIA_PATH, filename)
         try:
             # отправка файла на удаленный сервер
@@ -101,7 +101,7 @@ class HomeServerConnector(threading.Thread):
     def upload_requested_files(self, sftp: SFTPClient) -> None:
         """Upload files that should be upload on request"""
         # получение имени файлов из очереди в redis
-        request = pickle.loads(redis_client_pickle.lrange(READY_REQUESTED_FILES, 0, 0)[0])
+        request = pickle.loads(redis_client_pickle.get_full_list(READY_REQUESTED_FILES)[0])
         pk = request['request_pk']
         files = request['files']
         try:
@@ -157,7 +157,7 @@ class HomeServerConnector(threading.Thread):
         """
         # создание SSH подключения
 
-        if redis_client.llen(READY_TO_UPLOAD) or redis_client.llen(READY_REQUESTED_FILES):
+        if redis_client.len(READY_TO_UPLOAD) or redis_client.len(READY_REQUESTED_FILES):
             with paramiko.SSHClient() as client:
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 client.connect(hostname=self.url,
@@ -174,20 +174,20 @@ class HomeServerConnector(threading.Thread):
 
                     self.check_destination_path(sftp)
                     self.upload_logs(sftp)
-                    for _ in range(redis_client.llen(READY_TO_UPLOAD)):
+                    for _ in range(redis_client.len(READY_TO_UPLOAD)):
                         self.upload_regular_file(sftp)
-                    for _ in range(redis_client.llen(READY_REQUESTED_FILES)):
+                    for _ in range(redis_client.len(READY_REQUESTED_FILES)):
                         self.upload_requested_files(sftp)
 
     def send_coordinates(self) -> None:
         """Отправка координат в удаленную базу данных"""
         # подключение к базе данных
         with DBConnect(Config.DATABASE_URL, Config.CAR_LICENSE_TABLE) as conn:
-            if redis_client.llen(COORDINATES):
-                for _ in range(redis_client.llen(COORDINATES)):
+            if redis_client.len(COORDINATES):
+                for _ in range(redis_client.len(COORDINATES)):
                     try:
                         # получение и десериализация координат из очереди redis
-                        coordinates = pickle.loads(redis_client_pickle.lrange(COORDINATES, 0, 0)[0])
+                        coordinates = pickle.loads(redis_client_pickle.get_full_list(COORDINATES)[0])
                         # отправка координат в бд
                         conn.add_coordinates(coordinates)
                     except Exception as error:
@@ -214,7 +214,7 @@ class HomeServerConnector(threading.Thread):
         Create clips, for request
         Push clips names to redis queue
         """
-        for _ in range(redis_client_pickle.llen(REQUESTS)):
+        for _ in range(redis_client_pickle.len(REQUESTS)):
             # Получение запроса
             request = pickle.loads(redis_client_pickle.lpop(REQUESTS))
             clips = self.find_clips_by_request(request)
