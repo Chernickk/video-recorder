@@ -1,0 +1,6 @@
+__pycache*
+media*
+temp*
+.git
+.idea
+markers set.pdf
