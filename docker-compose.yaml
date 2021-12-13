@@ -1,9 +1,22 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:latest
+    volumes:
+      - redis-data:/data
+    restart: always
+      
   registrator:
     build: .
-    command: bash -c "python main.py"
+    command: bash -c "python3 main.py"
+    network_mode: "host"
     volumes:
       -  ./media:/media
+      -  ./logs/data:/logs/data
     restart: always
+    depends_on: 
+      -  redis
+  
+volumes:
+  redis-data:

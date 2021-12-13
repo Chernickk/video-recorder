@@ -11,7 +11,7 @@ from paramiko.ssh_exception import SSHException
 from psycopg2 import OperationalError
 from psycopg2 import IntegrityError
 from utils.redis_client import redis_client, redis_client_pickle
-from utils.update_checker import check_updates
+# from utils.update_checker import check_updates
 from utils.utils import get_duration, ping_server, extract_datetime, merge_clips, get_clips_by_name, \
     get_self_ip
 from utils.db import DBConnect
@@ -263,8 +263,8 @@ class HomeServerConnector(threading.Thread):
 
         return request_files
 
-    def check_updates(self):
-        check_updates()
+    # def check_updates(self):
+    #     check_updates()
 
     def run(self):
         """
