@@ -34,10 +34,10 @@ class CarBot(Thread):
         Send message using telegram API url
         :param text: str
         """
-        sleep(5)
+        sleep(9)
         try:
             requests.get(f"https://api.telegram.org/bot{self.bot_token}"
-                         f"/sendMessage?chat_id={self.chat_id}&text={Config.CAR_LICENSE_TABLE}:{text}", timeout=5)
+                         f"/sendMessage?chat_id={self.chat_id}&text={Config.CAR_LICENSE_TABLE}\n{text}", timeout=0.3)
         except requests.exceptions.Timeout:
             self.logger.info('Timeout occured')
 
