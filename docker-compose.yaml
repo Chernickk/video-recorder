@@ -12,11 +12,13 @@ services:
     command: bash -c "python3 main.py"
     network_mode: "host"
     volumes:
-      -  ./media:/media
-      -  ./logs/data:/logs/data
+      -  media:/media
+      -  logs:/logs/data
     restart: always
     depends_on: 
       -  redis
   
 volumes:
   redis-data:
+  media:
+  logs:

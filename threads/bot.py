@@ -28,7 +28,6 @@ class CarBot(Thread):
         self.notified = False
         self.logger = Logger('TelegramBot')
 
-    @function_call_log(Logger('BOTERROR'))
     def send_message(self, text: str) -> None:
         """
         Send message using telegram API url
@@ -41,7 +40,6 @@ class CarBot(Thread):
         except requests.exceptions.Timeout:
             self.logger.info('Timeout occured')
 
-    @function_call_log(Logger('BOTERROR'))
     def check_connection(self) -> None:
         """
         Check connection to home server
@@ -62,7 +60,6 @@ class CarBot(Thread):
             self.network_status = False
             self.notified = False
 
-    @function_call_log(Logger('BOTERROR'))
     def check_regular_files(self) -> None:
         """
         Check files that should upload regularly
@@ -78,7 +75,6 @@ class CarBot(Thread):
             elif files_to_upload:
                 self.has_files_to_upload = True
 
-    @function_call_log(Logger('BOTERROR'))
     def check_requested_files(self) -> None:
         """
         Check files that should be upload on request
@@ -92,7 +88,6 @@ class CarBot(Thread):
         elif files_to_upload:
             self.has_requested_files_to_upload = True
 
-    @function_call_log(Logger('BOTERROR'))
     def check_errors(self) -> None:
         """
         Send error messages to telegram chat
@@ -105,7 +100,10 @@ class CarBot(Thread):
         """
         Run telegram 'bot' thread
         """
-        self.send_message(f'Запуск.')
+        try:
+            self.send_message(f'Запуск.')
+        except:
+            pass
 
         while True:
             try:
