@@ -54,5 +54,5 @@ class RedisClientNoDecode(RedisClient):
         )
 
 
-redis_client = RedisClient(host='redis', db=0)
-redis_client_pickle = RedisClientNoDecode(host='redis', db=0)
+redis_client = RedisClient(host='127.0.0.1', db=0)
+redis_client_pickle = RedisClientNoDecode(host='127.0.0.1', db=0)
