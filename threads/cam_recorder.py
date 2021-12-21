@@ -142,12 +142,13 @@ class ArUcoCamRecorder(CamRecorder):
         Дополнительная проверка для исключения ложных срабатываний
         :return: bool
         """
-        if redis_client.get(NETWORK_CONNECTION):
-            if not redis_client.get(LOADING_STATUS):
-                return False
+        if redis_client.get(NETWORK_CONNECTION) and not redis_client.get(LOADING_STATUS):
+            self.logger.info(f'!!!!!!!!!! loading: False!')
+            return False
         for _ in range(5):
             status, frame = self.capture.read()
             if not status or not self.detect_markers(frame):
+                self.logger.info(f'!!!!!!! status: {status}, markers: {self.detect_markers(frame)}')
                 return False
 
         return True
@@ -181,11 +182,10 @@ class ArUcoCamRecorder(CamRecorder):
                 record_status, frame = self.capture.read()
                 if record_status:
                     # проверка один раз в заданное количество секунд
-                    if redis_client.get(NETWORK_CONNECTION):
-                        if not redis_client.get(LOADING_STATUS):
-                            break
                     if i and not i % (self.fps * self.check_interval_in_seconds):
                         if not self.detect_markers(frame):
+                            break
+                        if redis_client.get(NETWORK_CONNECTION) and not redis_client.get(LOADING_STATUS):
                             break
                     process.stdin.write(frame.tobytes())
 
