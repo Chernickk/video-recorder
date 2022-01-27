@@ -4,6 +4,7 @@ from datetime import timedelta
 
 
 class Config:
+    CAR_LICENSE_TABLE = 'т444ст790'
     PATH = pathlib.Path(__file__).parent.resolve()
     TEMP_PATH = os.path.join(PATH, 'temp')
     MEDIA_PATH = os.path.join(PATH, 'media')
@@ -25,7 +26,11 @@ class Config:
     STORAGE_SERVER_URL = '192.168.1.1'
     STORAGE_SERVER_USERNAME = 'username'
     STORAGE_SERVER_PASSWORD = 'password'
-    DESTINATION_PATH = '/home/user/videoserver/media/'
+    DESTINATION_DISK = 'E:\\'
+    DESTINATION_PATH = os.path.join('.', 'video', CAR_LICENSE_TABLE)
+    DESTINATION_TEMP = os.path.join('.', 'video', CAR_LICENSE_TABLE, 'temp')
+    DESTINATION_LOGS = os.path.join('.', 'video', CAR_LICENSE_TABLE, 'logs')
+    DESTINATION_REQUEST = os.path.join('.', 'video', CAR_LICENSE_TABLE, 'requests')
     DATABASE_URL = 'postgresql+psycopg2://<username>:<password>@<192.168.1.1>/<db_name>'
     CAR_ID = 1
 
